@@ -11,15 +11,18 @@ from config import TABS_CONFIG, MESSAGES
 
 class ConsultaCuentaCorriente:
     """Manejador de consultas de cuenta corriente"""
-    
+
     def __init__(self):
         self.config = TABS_CONFIG["cuenta_corriente"]
         self.messages = MESSAGES
-    
+
     def mostrar_interfaz(self):
         """Muestra la interfaz de consulta de cuenta corriente"""
         st.header(self.config["header"])
         st.write(self.config["description"])
+
+        # Restaurar resultados persistentes si existen
+        ui_components.mostrar_resultados_persistentes("ctacte_consulta")
 
         # Crear formulario con múltiples campos
         with st.form("consulta_ctacte_form"):
@@ -28,7 +31,7 @@ class ConsultaCuentaCorriente:
             with col1:
                 # Campo para cuenta
                 cuenta_input = st.text_input(
-                    "Cuenta (solo podes buscar de a 1):",
+                    "Cuenta* (OBLIGATORIO solo podes buscar de a 1):",
                     placeholder="Ej: 650581, 650582",
                     help="Ingresá los números de cuenta separados por coma",
                 )
@@ -76,32 +79,75 @@ class ConsultaCuentaCorriente:
                     help="Ingresá los números de comprobante separados por coma"
                 )
 
+                # # campo para sistema
+                # sistema_input = st.text_input(
+                #     "Sistema (opcional):",
+                #     placeholder="Ej: 1 ",
+                #     help="Ingresá el código de sistema",
+                # )
+
             # Botón de búsqueda
             submitted_ctacte = st.form_submit_button("🔍 Buscar en Cta Cte", use_container_width=True)
 
         if submitted_ctacte:
             self.procesar_busqueda(
-                cuenta_input, ano_input, cuota_input, capital_input,
-                transacciones_input, tasa_input, comprob_input
+                cuenta_input,
+                ano_input,
+                cuota_input,
+                capital_input,
+                transacciones_input,
+                tasa_input,
+                comprob_input,
+                # sistema_input,
             )
-    
-    def procesar_busqueda(self, cuenta_input, ano_input, cuota_input, capital_input, 
-                         transacciones_input, tasa_input, comprob_input):
+
+    def procesar_busqueda(
+        self,
+        cuenta_input,
+        ano_input,
+        cuota_input,
+        capital_input,
+        transacciones_input,
+        tasa_input,
+        comprob_input,
+        # sistema_input,
+    ):
         """Procesa la búsqueda de cuenta corriente"""
         try:
-            # Verificar que al menos un campo haya sido ingresado
-            campos = [
-                cuenta_input, ano_input, cuota_input, transacciones_input,
-                tasa_input, comprob_input, capital_input
-            ]
-            
-            if not ui_components.validar_campos_requeridos(campos):
-                st.warning(self.messages["validation"]["min_one_field"])
+            # Verificar que el campo cuenta (obligatorio) haya sido ingresado
+            if not cuenta_input.strip():
+                st.warning("⚠️ El campo Cuenta es obligatorio.")
                 return
-            
+
+            # Verificar que al menos un campo adicional haya sido ingresado
+            campos_adicionales = [
+                ano_input,
+                cuota_input,
+                transacciones_input,
+                tasa_input,
+                comprob_input,
+                capital_input,
+                # sistema_input,
+            ]
+
+            if not ui_components.validar_campos_requeridos(campos_adicionales):
+                st.warning(
+                    "⚠️ Además de la cuenta, debés ingresar al menos un criterio adicional de búsqueda."
+                )
+                return
+
             # Construir condiciones WHERE dinámicamente
             conditions = []
-            base_condition = "t.n_transac = c.n_transac"
+            # No necesitamos base_condition ya que usamos INNER JOIN en la consulta SQL
+
+            # # IMPORTANTE: Poner el filtro de sistema PRIMERO para optimizar la consulta
+            # if sistema_input.strip():
+            #     sistemas = [
+            #         x.strip() for x in sistema_input.split(",") if x.strip().isdigit()
+            #     ]
+            #     if sistemas:
+            #         sistemas_str = ",".join(sistemas)
+            #         conditions.append(f"t.c_sistema = {sistemas_str}")
 
             # Procesar cada campo
             if cuenta_input.strip():
@@ -147,7 +193,7 @@ class ConsultaCuentaCorriente:
                         return True
                     except ValueError:
                         return False
-                
+
                 capitals = [x.strip() for x in capital_input.split(",") if es_numero_valido(x.strip())]
                 if capitals:
                     if len(capitals) == 1:
@@ -158,6 +204,8 @@ class ConsultaCuentaCorriente:
 
             # Mostrar criterios de búsqueda
             criterios = []
+            # if sistema_input.strip():
+            #     criterios.append(f"🎯 Sistema: {sistema_input.strip()}")
             if cuenta_input.strip():
                 criterios.append(f"Cuenta: {cuenta_input.strip()}")
             if ano_input.strip():
@@ -179,60 +227,48 @@ class ConsultaCuentaCorriente:
             if capital_input.strip():
                 criterios.append(f"Capital: {capital_input.strip()}")
 
-            ui_components.mostrar_criterios_busqueda(criterios, "🔍 Consultando cuenta corriente con criterios")
+            mensaje_criterios = "🔍 Consultando cuenta corriente con criterios"
+            # if sistema_input.strip():
+            #     mensaje_criterios = f"🔍 Consultando cuenta corriente (Sistema {sistema_input.strip()}) con criterios"
+
+            ui_components.mostrar_criterios_busqueda(criterios, mensaje_criterios)
 
             # Crear controles de búsqueda
             spinner_container, cancel_container, cancel_key = ui_components.crear_controles_busqueda("ctacte")
-            
+
             # Mostrar botón de cancelar
             ui_components.mostrar_boton_cancelar(cancel_container, "ctacte")
 
             # Construir query completa
-            all_conditions = [base_condition] + conditions
-
-            # Mostrar query generada (para debug)
-            with st.expander("Query generada", expanded=False):
-                where_clause = " AND ".join(all_conditions)
-                query_preview = f"""
-                SELECT t.c_sistema as sistema, t.n_transac as transaccion, 
-                       t.c_cuenta as cuenta, t.c_tasa as tasa, t.n_ano as ano, 
-                       t.n_cuota as cuota, c.c_estado_deuda as estado_deuda, 
-                       t.c_actual as estado_actual, c.n_comprob as comprobante, 
-                       c.n_orden as orden, c.f_pago as pago, 
-                       c.c_lugar_pago as lugar_pago, c.i_capital as importe, 
-                       c.i_recargo as recargo, c.i_multa as multa, 
-                       c.c_movimiento as movimiento  
-                FROM transacciones t, cta_cte c
-                WHERE {where_clause}
-                """
-                st.code(query_preview, language="sql")
+            all_conditions = conditions
 
             # Ejecutar consulta
             def consulta_ctacte():
                 return db_manager.consultar_cuenta_corriente(all_conditions)
-            
+
             df = ui_components.ejecutar_con_spinner(
                 spinner_container,
                 "💳 Consultando cuenta corriente... Presioná 'Cancelar Búsqueda' si querés detener.",
                 consulta_ctacte
             )
-            
+
             # Limpiar controles
             ui_components.limpiar_controles(spinner_container, cancel_container, cancel_key)
-            
+
             if df is not None:
                 # Mostrar estadísticas básicas
                 columnas_metricas = {
                     "total": "Total registros",
                     "cuenta": "Cuentas únicas",
                     "transaccion": "Transacciones únicas",
-                    "tasa": "Tasas únicas"
+                    "tasa": "Tasas únicas",
+                    "sistema": "Sistemas únicos",
                 }
                 ui_components.mostrar_estadisticas_basicas(df, columnas_metricas)
-                
+
                 # Mostrar resultados
                 ui_components.mostrar_resultados(df, "ctacte_consulta")
-            
+
         except Exception as e:
             st.error(self.messages["errors"]["database_error"].format(error=e))
 

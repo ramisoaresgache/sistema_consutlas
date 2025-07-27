@@ -11,15 +11,18 @@ from config import TABS_CONFIG, MESSAGES
 
 class ConsultaLotesBancarios:
     """Manejador de consultas de lotes bancarios"""
-    
+
     def __init__(self):
         self.config = TABS_CONFIG["lotes"]
         self.messages = MESSAGES
-    
+
     def mostrar_interfaz(self):
         """Muestra la interfaz de consulta de lotes bancarios"""
         st.header(self.config["header"])
         st.write(self.config["description"])
+
+        # Restaurar resultados persistentes si existen
+        ui_components.mostrar_resultados_persistentes("bco_cab_consulta")
 
         # Crear formulario con múltiples campos
         with st.form("consulta_banco_form"):
@@ -60,7 +63,7 @@ class ConsultaLotesBancarios:
 
         if submitted:
             self.procesar_busqueda(cuentas_input, registros_input, fecha_cobro, comprobantes_input_banco)
-    
+
     def procesar_busqueda(self, cuentas_input, registros_input, fecha_cobro, comprobantes_input_banco):
         """Procesa la búsqueda de lotes bancarios"""
         try:
@@ -97,7 +100,7 @@ class ConsultaLotesBancarios:
             if not conditions:
                 st.warning(self.messages["validation"]["min_one_field"])
                 return
-            
+
             # Mostrar criterios de búsqueda
             criterios = []
             if cuentas_input.strip():
@@ -111,28 +114,28 @@ class ConsultaLotesBancarios:
                 if len(comprobantes_input_banco.strip()) > 50:
                     comp_texto += "..."
                 criterios.append(f"Comprobantes: {comp_texto}")
-            
+
             ui_components.mostrar_criterios_busqueda(criterios, "🔍 Buscando en lotes bancarios con criterios")
-            
+
             # Crear controles de búsqueda
             spinner_container, cancel_container, cancel_key = ui_components.crear_controles_busqueda("banco")
-            
+
             # Mostrar botón de cancelar
             ui_components.mostrar_boton_cancelar(cancel_container, "banco")
-            
+
             # Ejecutar consulta
             def consulta_lotes():
                 return db_manager.consultar_lotes_bancarios(conditions)
-            
+
             df = ui_components.ejecutar_con_spinner(
                 spinner_container,
                 "🏦 Consultando lotes bancarios... Presioná 'Cancelar Búsqueda' si querés detener.",
                 consulta_lotes
             )
-            
+
             # Limpiar controles
             ui_components.limpiar_controles(spinner_container, cancel_container, cancel_key)
-            
+
             if df is not None:
                 # Mostrar estadísticas básicas
                 columnas_metricas = {
@@ -141,10 +144,10 @@ class ConsultaLotesBancarios:
                     "fecha_cobro": "Fechas únicas"
                 }
                 ui_components.mostrar_estadisticas_basicas(df, columnas_metricas)
-                
+
                 # Mostrar resultados
                 ui_components.mostrar_resultados(df, "bco_cab_consulta")
-            
+
         except Exception as e:
             st.error(self.messages["errors"]["database_error"].format(error=e))
 

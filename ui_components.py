@@ -4,6 +4,7 @@ Elementos reutilizables de la UI
 """
 
 import streamlit as st
+import pandas as pd
 from datetime import datetime
 from config import UI_CONFIG, MESSAGES
 
@@ -66,6 +67,10 @@ class UIComponents:
         if df.empty:
             st.info(self.messages["search"]["no_results"])
         else:
+            # Guardar resultados en session_state para persistir después de descarga
+            session_key = f"last_results_{filename_prefix}"
+            st.session_state[session_key] = df.copy()
+
             st.success(self.messages["search"]["results_found"].format(count=len(df)))
 
             # Formatear columnas específicas según el tipo de consulta
@@ -85,12 +90,43 @@ class UIComponents:
             ):
                 df_display["comprobante"] = df_display["comprobante"].astype(str)
 
-            # Para cuenta corriente, formatear las columnas numéricas que son identificadores
+            # Para cuenta corriente, formatear las columnas numéricas según su tipo
             elif filename_prefix in ["cuenta_corriente_consulta", "ctacte_consulta"]:
+                # Identificadores enteros (sin comas)
                 if "comprobante" in df_display.columns:
-                    df_display["comprobante"] = df_display["comprobante"].astype(str)
+                    df_display["comprobante"] = (
+                        df_display["comprobante"].astype(str).str.replace(",", "")
+                    )
                 if "transaccion" in df_display.columns:
-                    df_display["transaccion"] = df_display["transaccion"].astype(str)
+                    df_display["transaccion"] = (
+                        df_display["transaccion"].astype(str).str.replace(",", "")
+                    )
+                if "cuenta" in df_display.columns:
+                    df_display["cuenta"] = (
+                        df_display["cuenta"].astype(str).str.replace(",", "")
+                    )
+
+                # Campos smallint (sin comas)
+                if "ano" in df_display.columns:
+                    df_display["ano"] = (
+                        df_display["ano"].astype(str).str.replace(",", "")
+                    )
+                if "cuota" in df_display.columns:
+                    df_display["cuota"] = (
+                        df_display["cuota"].astype(str).str.replace(",", "")
+                    )
+                if "tasa" in df_display.columns:
+                    df_display["tasa"] = (
+                        df_display["tasa"].astype(str).str.replace(",", "")
+                    )
+
+                # Campos decimales (mantener formato decimal pero sin comas de miles)
+                for col in ["importe", "recargo", "multa"]:
+                    if col in df_display.columns:
+                        # Limpiar formato y convertir a string sin comas
+                        df_display[col] = (
+                            df_display[col].astype(str).str.replace(",", "")
+                        )
 
             # Para declaraciones juradas, formatear las columnas numéricas que son identificadores
             elif filename_prefix in [
@@ -110,17 +146,117 @@ class UIComponents:
                         df_display["id_simplificado"].astype(str).str.replace(",", "")
                     )
 
+            # Para planes, formatear las columnas numéricas según su tipo
+            elif filename_prefix in [
+                "planes_consulta",
+                "planes_transacciones_consulta",
+            ]:
+                # Identificadores enteros (sin comas)
+                if "plan" in df_display.columns:
+                    df_display["plan"] = (
+                        df_display["plan"].astype(str).str.replace(",", "")
+                    )
+                if "cuota_plan" in df_display.columns:
+                    df_display["cuota_plan"] = (
+                        df_display["cuota_plan"].astype(str).str.replace(",", "")
+                    )
+                if "cantidad_cuotas" in df_display.columns:
+                    df_display["cantidad_cuotas"] = (
+                        df_display["cantidad_cuotas"].astype(str).str.replace(",", "")
+                    )
+                if "porcentaje_anticipo" in df_display.columns:
+                    df_display["porcentaje_anticipo"] = (
+                        df_display["porcentaje_anticipo"]
+                        .astype(str)
+                        .str.replace(",", "")
+                    )
+
+                # Campos similares a cuenta corriente
+                if "comprobante" in df_display.columns:
+                    df_display["comprobante"] = (
+                        df_display["comprobante"].astype(str).str.replace(",", "")
+                    )
+                if "transaccion" in df_display.columns:
+                    df_display["transaccion"] = (
+                        df_display["transaccion"].astype(str).str.replace(",", "")
+                    )
+                if "cuenta" in df_display.columns:
+                    df_display["cuenta"] = (
+                        df_display["cuenta"].astype(str).str.replace(",", "")
+                    )
+                if "ano" in df_display.columns:
+                    df_display["ano"] = (
+                        df_display["ano"].astype(str).str.replace(",", "")
+                    )
+                if "cuota" in df_display.columns:
+                    df_display["cuota"] = (
+                        df_display["cuota"].astype(str).str.replace(",", "")
+                    )
+                if "tasa" in df_display.columns:
+                    df_display["tasa"] = (
+                        df_display["tasa"].astype(str).str.replace(",", "")
+                    )
+                if "orden" in df_display.columns:
+                    df_display["orden"] = (
+                        df_display["orden"].astype(str).str.replace(",", "")
+                    )
+
+                # Campos decimales (sin comas de miles)
+                for col in [
+                    "importe_anticipo",
+                    "capital_cuota",
+                    "recargos_cuotas",
+                    "intereses_cuota",
+                    "multa",
+                    "importe",
+                    "recargo",
+                ]:
+                    if col in df_display.columns:
+                        df_display[col] = (
+                            df_display[col].astype(str).str.replace(",", "")
+                        )
+
             # Mostrar dataframe
             st.dataframe(df_display, use_container_width=True)
 
-            # Opción para descargar
-            csv = df.to_csv(index=False)
+            # Crear el botón de descarga con datos en session_state
+            self._crear_boton_descarga(df, filename_prefix)
+
+    def _crear_boton_descarga(self, df, filename_prefix):
+        """Crea el botón de descarga de Excel de manera robusta"""
+        from io import BytesIO
+
+        # Crear un contenedor para el botón
+        download_container = st.container()
+
+        with download_container:
+            # Preparar los datos de Excel una sola vez
+            if f"excel_data_{filename_prefix}" not in st.session_state:
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                    df.to_excel(writer, index=False, sheet_name="Resultados")
+                st.session_state[f"excel_data_{filename_prefix}"] = output.getvalue()
+
+            # Crear el botón usando los datos guardados
+            excel_data = st.session_state[f"excel_data_{filename_prefix}"]
+
             st.download_button(
                 label=self.messages["search"]["download_button"],
-                data=csv,
-                file_name=f"{filename_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
+                data=excel_data,
+                file_name=f"{filename_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"download_stable_{filename_prefix}",
+                help="Descargar resultados sin perder la búsqueda actual",
             )
+
+    def mostrar_resultados_persistentes(self, filename_prefix):
+        """Muestra los resultados guardados en session_state si existen"""
+        session_key = f"last_results_{filename_prefix}"
+        if session_key in st.session_state:
+            st.info("📋 Mostrando resultados de la última búsqueda:")
+            self.mostrar_resultados(st.session_state[session_key], filename_prefix)
+            return True
+        return False
 
     def crear_controles_busqueda(self, key_prefix):
         """Crea controles para cancelar búsqueda"""

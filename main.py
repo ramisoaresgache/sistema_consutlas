@@ -11,6 +11,7 @@ from consultas.recibos import consulta_recibos
 from consultas.lotes_bancarios import consulta_lotes_bancarios
 from consultas.cuenta_corriente import consulta_cuenta_corriente
 from consultas.declaraciones_juradas import consulta_declaraciones_juradas
+from consultas.planes import consulta_planes
 
 
 def main():
@@ -29,12 +30,13 @@ def main():
     st.markdown("---")
 
     # Crear pestañas principales
-    tab1, tab2, tab3, tab4 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
         [
             TABS_CONFIG["recibos"]["name"],
             TABS_CONFIG["lotes"]["name"],
             TABS_CONFIG["cuenta_corriente"]["name"],
-            TABS_CONFIG["declaraciones_juradas"]["name"]
+            TABS_CONFIG["declaraciones_juradas"]["name"],
+            TABS_CONFIG["planes"]["name"],
         ]
     )
 
@@ -49,9 +51,15 @@ def main():
     # PESTAÑA 3: CONSULTA DE CUENTA CORRIENTE
     with tab3:
         consulta_cuenta_corriente.mostrar_interfaz()
+
     # PESTAÑA 4: CONSULTA DE DECLARACIONES JURADAS
     with tab4:
         consulta_declaraciones_juradas.mostrar_interfaz()
+
+    # PESTAÑA 5: CONSULTA DE PLANES
+    with tab5:
+        consulta_planes.mostrar_interfaz()
+
     # Footer
     st.markdown("---")
     st.markdown(

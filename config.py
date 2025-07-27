@@ -64,6 +64,11 @@ TABS_CONFIG = {
         "header": "Consulta de Declaraciones Juradas",
         "description": "Ingresá los criterios de búsqueda para las declaraciones juradas.",
     },
+    "planes": {
+        "name": "📋 Consulta de Planes",
+        "header": "Consulta de Planes de Pago",
+        "description": "Ingresá el número de plan para consultar la información detallada.",
+    },
 }
 
 # Mensajes del sistema
@@ -77,26 +82,25 @@ MESSAGES = {
         "fields_required": "⚠️ Por favor completá todos los campos",
         "welcome": "✅ ¡Bienvenido/a {nombre}!",
         "credentials_error": "❌ Credenciales incorrectas. Verificá tu legajo y contraseña.",
-        "unexpected_error": "❌ Error inesperado durante el login. Intentá nuevamente."
+        "unexpected_error": "❌ Error inesperado durante el login. Intentá nuevamente.",
     },
     "session": {
         "restored": "🔄 Sesión restaurada automáticamente",
-        "logout_button": "🚪 Cerrar Sesión"
+        "logout_button": "🚪 Cerrar Sesión",
     },
     "search": {
         "cancel_button": "🛑 Cancelar Búsqueda",
         "cancelled": "🛑 Búsqueda cancelada por el usuario",
         "no_results": "ℹ️ No se encontraron resultados para los criterios especificados.",
-        "results_found": "✅ Se encontraron {count} resultados:",
-        "download_button": "📥 Descargar resultados como CSV"
+        "results_found": "✅ Se encontraron {count} resultados (límite: 1000 filas):",
+        "download_button": "📥 Descargar resultados como Excel",
+        "limit_info": "ℹ️ Las consultas están limitadas a 1000 registros para optimizar el rendimiento.",
     },
     "validation": {
         "min_one_field": "⚠️ Debés ingresar al menos un criterio de búsqueda.",
-        "min_one_comprobante": "⚠️ Ingresá al menos un número de comprobante válido."
+        "min_one_comprobante": "⚠️ Ingresá al menos un número de comprobante válido.",
     },
-    "errors": {
-        "database_error": "❌ Error al consultar la base de datos: {error}"
-    }
+    "errors": {"database_error": "❌ Error al consultar la base de datos: {error}"},
 }
 
 # Configuración de consultas SQL
@@ -125,9 +129,10 @@ SQL_QUERIES = {
                c.c_lugar_pago as lugar_pago, c.i_capital as importe, 
                c.i_recargo as recargo, c.i_multa as multa, 
                c.c_movimiento as movimiento  
-        FROM transacciones t, cta_cte c
+        FROM transacciones t 
+        INNER JOIN cta_cte c ON t.n_transac = c.n_transac
         WHERE {where_clause}
-        AND t.n_transac = c.n_transac
+        ORDER BY t.c_sistema, t.n_transac,t.n_ano, t.n_cuota, c.n_orden
     """,
     "declaraciones_juradas": """
         SELECT 
@@ -162,6 +167,56 @@ SQL_QUERIES = {
         WHERE {where_clause}
         AND a.id_simplificado = b.id_simplificado
         AND a.id_simplificado = c.id_simplificado
+        LIMIT 1000
+    """,
+    "planes": """
+        SELECT 
+          a.n_plan as plan,
+          a.n_cant_cuotas as cantidad_cuotas,
+          a.n_porc_ant as porcentaje_anticipo,
+          a.i_anticipo as importe_anticipo,
+          a.c_estado as estado,
+          b.n_cuota_plan as cuota_plan,
+          b.f_vencimiento as fecha_vencimiento,
+          b.i_capital as capital_cuota,
+          b.i_recargo as recargos_cuotas,
+          b.i_interes_fin as intereses_cuota,
+          b.i_multa as multa,
+          b.f_pago as fecha_pago_cuota
+        FROM ppc_cab a, cuotas_ppc b
+        WHERE a.n_plan = b.n_plan
+        AND {where_clause}
+        ORDER BY a.n_plan, b.n_cuota_plan
+        LIMIT 1000
+    """,
+    "planes_transacciones": """
+        SELECT 
+          t.c_sistema as sistema,
+          t.n_transac as transaccion,
+          t.c_cuenta as cuenta,
+          t.c_tasa as tasa,
+          t.n_ano as ano, 
+          t.n_cuota as cuota,
+          c.c_estado_deuda as estado_deuda, 
+          t.c_actual as estado_actual,
+          c.n_comprob as comprobante, 
+          c.n_orden as orden,
+          c.f_pago as pago, 
+          c.c_lugar_pago as lugar_pago,
+          c.i_capital as importe, 
+          c.i_recargo as recargo,
+          c.i_multa as multa, 
+          c.c_movimiento as movimiento  
+        FROM ppc_cab a, cuotas_ppc b, transacciones t, cta_cte c, ppc_transac d
+        WHERE t.n_transac = c.n_transac 
+        AND t.n_transac = d.n_transac
+        AND d.n_transac = c.n_transac
+        AND a.n_plan = d.n_plan
+        AND b.n_plan = d.n_plan 
+        AND a.n_plan = b.n_plan
+        AND {where_clause}
+        ORDER BY t.c_sistema, t.n_transac, t.n_ano, t.n_cuota, c.n_orden
+    
     """,
     "usuario_login": "SELECT n_legajo, d_nombre FROM usuarios WHERE n_legajo = ? AND n_legajo = ?",
     "usuario_nombre": "SELECT d_nombre FROM usuarios WHERE n_legajo = ?",

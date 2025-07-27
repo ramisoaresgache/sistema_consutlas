@@ -21,6 +21,10 @@ class ConsultaDeclaracionesJuradas:
         st.header(self.config["header"])
         st.write(self.config["description"])
 
+        # Restaurar resultados persistentes si existen
+        ui_components.mostrar_resultados_persistentes("declaraciones_juradas_consulta")
+        ui_components.mostrar_resultados_persistentes("declaraciones_juradas_adicional")
+
         # Crear formulario con múltiples campos
         with st.form("consulta_declaraciones_form"):
             col1, col2 = st.columns(2)
