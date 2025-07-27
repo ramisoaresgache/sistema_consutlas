@@ -1,0 +1,174 @@
+"""
+Componentes de interfaz de usuario
+Elementos reutilizables de la UI
+"""
+
+import streamlit as st
+from datetime import datetime
+from config import UI_CONFIG, MESSAGES
+
+
+class UIComponents:
+    """Componentes reutilizables de la interfaz de usuario"""
+
+    def __init__(self):
+        self.ui_config = UI_CONFIG
+        self.messages = MESSAGES
+
+    def mostrar_header(self, auth_manager):
+        """Muestra el header principal con saludo y botón de logout"""
+        col1, col2 = st.columns([10, 1])
+
+        with col1:
+            st.markdown(
+                f"""
+                <div style="display: flex; justify-content: center; align-items: center; margin-top: -50px;">
+                    <span style="font-size:3.2rem; font-weight: bold;">
+                        {self.ui_config["header_title"]}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"""
+                <div style="text-align:left; margin-top: 30px;">
+                    <span style="font-size:1.5rem;">
+                        {self.ui_config["welcome_message"].format(nombre=st.session_state.user_nombre)}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        with col2:
+            st.markdown(
+                "<div style='text-align: right; margin-top: 30px; margin-right: 0px;'>",
+                unsafe_allow_html=True,
+            )
+            if st.button(self.messages["session"]["logout_button"]):
+                auth_manager.cerrar_sesion()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    def mostrar_estadisticas_basicas(self, df, columnas_metricas):
+        """Muestra estadísticas básicas de los resultados"""
+        cols = st.columns(len(columnas_metricas))
+
+        for i, (col_name, col_label) in enumerate(columnas_metricas.items()):
+            with cols[i]:
+                if col_name == "total":
+                    st.metric(col_label, len(df))
+                elif col_name in df.columns:
+                    st.metric(col_label, df[col_name].nunique())
+
+    def mostrar_resultados(self, df, filename_prefix):
+        """Muestra los resultados de una consulta con opción de descarga"""
+        if df.empty:
+            st.info(self.messages["search"]["no_results"])
+        else:
+            st.success(self.messages["search"]["results_found"].format(count=len(df)))
+
+            # Formatear columnas específicas según el tipo de consulta
+            df_display = df.copy()
+
+            # Para recibos, formatear la columna comprobante sin comas
+            if (
+                filename_prefix == "recibos_consulta"
+                and "comprobante" in df_display.columns
+            ):
+                df_display["comprobante"] = df_display["comprobante"].astype(str)
+
+            # Para lotes bancarios, formatear la columna comprobante sin comas
+            elif (
+                filename_prefix in ["lotes_consulta", "bco_cab_consulta"]
+                and "comprobante" in df_display.columns
+            ):
+                df_display["comprobante"] = df_display["comprobante"].astype(str)
+
+            # Para cuenta corriente, formatear las columnas numéricas que son identificadores
+            elif filename_prefix in ["cuenta_corriente_consulta", "ctacte_consulta"]:
+                if "comprobante" in df_display.columns:
+                    df_display["comprobante"] = df_display["comprobante"].astype(str)
+                if "transaccion" in df_display.columns:
+                    df_display["transaccion"] = df_display["transaccion"].astype(str)
+
+            # Para declaraciones juradas, formatear las columnas numéricas que son identificadores
+            elif filename_prefix in [
+                "declaraciones_juradas_consulta",
+                "declaraciones_juradas_adicional",
+            ]:
+                if "cuit" in df_display.columns:
+                    df_display["cuit"] = (
+                        df_display["cuit"].astype(str).str.replace(",", "")
+                    )
+                if "cuenta" in df_display.columns:
+                    df_display["cuenta"] = (
+                        df_display["cuenta"].astype(str).str.replace(",", "")
+                    )
+                if "id_simplificado" in df_display.columns:
+                    df_display["id_simplificado"] = (
+                        df_display["id_simplificado"].astype(str).str.replace(",", "")
+                    )
+
+            # Mostrar dataframe
+            st.dataframe(df_display, use_container_width=True)
+
+            # Opción para descargar
+            csv = df.to_csv(index=False)
+            st.download_button(
+                label=self.messages["search"]["download_button"],
+                data=csv,
+                file_name=f"{filename_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+
+    def crear_controles_busqueda(self, key_prefix):
+        """Crea controles para cancelar búsqueda"""
+        # Crear contenedores para el spinner y botón de cancelar
+        spinner_container = st.empty()
+        cancel_container = st.empty()
+
+        # Variable para controlar la cancelación
+        cancel_key = f"cancel_search_{key_prefix}"
+        if cancel_key not in st.session_state:
+            st.session_state[cancel_key] = False
+
+        return spinner_container, cancel_container, cancel_key
+
+    def mostrar_boton_cancelar(self, cancel_container, key_prefix):
+        """Muestra el botón de cancelar búsqueda"""
+        with cancel_container.container():
+            if st.button(
+                self.messages["search"]["cancel_button"],
+                key=f"cancel_{key_prefix}",
+                use_container_width=True,
+            ):
+                st.session_state[f"cancel_search_{key_prefix}"] = True
+                st.warning(self.messages["search"]["cancelled"])
+                st.stop()
+
+    def ejecutar_con_spinner(self, spinner_container, mensaje, funcion_consulta):
+        """Ejecuta una función con spinner de progreso"""
+        with spinner_container.container():
+            with st.spinner(mensaje):
+                return funcion_consulta()
+
+    def limpiar_controles(self, spinner_container, cancel_container, cancel_key):
+        """Limpia los controles de búsqueda"""
+        spinner_container.empty()
+        cancel_container.empty()
+        # Resetear flag de cancelación
+        st.session_state[cancel_key] = False
+
+    def validar_campos_requeridos(self, campos):
+        """Valida que al menos un campo haya sido ingresado"""
+        return any(campo.strip() for campo in campos)
+
+    def mostrar_criterios_busqueda(self, criterios, titulo="🔍 Buscando con criterios"):
+        """Muestra los criterios de búsqueda"""
+        if criterios:
+            st.info(f"{titulo}: {' | '.join(criterios)}")
+
+
+# Instancia global de componentes UI
+ui_components = UIComponents()
