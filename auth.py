@@ -14,6 +14,42 @@ class AuthManager:
 
     def __init__(self):
         self.messages = MESSAGES
+        # Detectar si Streamlit tiene la nueva API de query_params
+        self._has_new_query_params = hasattr(st, "query_params")
+
+    def _get_query_params(self):
+        """Obtiene los query parameters usando la API correcta según la versión de Streamlit"""
+        if self._has_new_query_params:
+            try:
+                return dict(st.query_params)
+            except Exception:
+                # Si falla, usar API anterior como fallback
+                return st.experimental_get_query_params()
+        else:
+            return st.experimental_get_query_params()
+
+    def _set_query_params(self, **params):
+        """Establece los query parameters usando la API correcta según la versión de Streamlit"""
+        if self._has_new_query_params:
+            try:
+                for key, value in params.items():
+                    st.query_params[key] = value
+            except Exception:
+                # Si falla, usar API anterior como fallback
+                st.experimental_set_query_params(**params)
+        else:
+            st.experimental_set_query_params(**params)
+
+    def _clear_query_params(self):
+        """Limpia los query parameters usando la API correcta según la versión de Streamlit"""
+        if self._has_new_query_params:
+            try:
+                st.query_params.clear()
+            except Exception:
+                # Si falla, usar API anterior como fallback
+                st.experimental_set_query_params()
+        else:
+            st.experimental_set_query_params()
 
     def verificar_login(self, legajo, password):
         """Verifica las credenciales del usuario contra la base de datos y autorización"""
@@ -112,20 +148,23 @@ class AuthManager:
             if key in st.session_state:
                 del st.session_state[key]
 
-        # Limpiar query params
-        st.experimental_set_query_params()
+        # Limpiar query params usando el método auxiliar
+        self._clear_query_params()
         st.rerun()
 
     def verificar_sesion_persistente(self):
         """Verifica si hay una sesión persistente válida"""
-        query_params = st.experimental_get_query_params()
+        query_params = self._get_query_params()
 
         if "session_token" in query_params and "user_legajo" in query_params:
             # Verificar que el token coincida con el legajo
-            session_token = query_params["session_token"][
-                0
-            ]  # Los query params vienen como listas
-            user_legajo = query_params["user_legajo"][0]
+            # Manejar tanto el formato nuevo (string) como el anterior (lista)
+            if isinstance(query_params["session_token"], list):
+                session_token = query_params["session_token"][0]
+                user_legajo = query_params["user_legajo"][0]
+            else:
+                session_token = query_params["session_token"]
+                user_legajo = query_params["user_legajo"]
 
             # Token simple: legajo codificado
             expected_token = f"token_{user_legajo}_{len(user_legajo)}"
@@ -134,7 +173,7 @@ class AuthManager:
                 # Verificar que el usuario siga autorizado
                 if not esta_autorizado(user_legajo):
                     # Usuario ya no autorizado, limpiar sesión
-                    st.experimental_set_query_params()
+                    self._clear_query_params()
                     st.error("🚫 Tu autorización ha sido revocada. Contactá al administrador.")
                     return False
 
@@ -159,10 +198,8 @@ class AuthManager:
         # Guardar en session_state
         st.session_state.session_token = session_token
 
-        # Actualizar URL con parámetros
-        st.experimental_set_query_params(
-            session_token=session_token, user_legajo=legajo
-        )
+        # Actualizar URL con parámetros usando el método auxiliar
+        self._set_query_params(session_token=session_token, user_legajo=legajo)
 
     def inicializar_sesion(self):
         """Inicializa el estado de sesión"""

@@ -38,22 +38,27 @@ class ConsultaPlanes:
                 )
             submitted = st.form_submit_button("🔍 Buscar Plan", use_container_width=True)
 
-        # Separador visual
-        st.divider()
-
-        # Mostrar resultados persistentes si existen (restauración automática)
-        persistio = False
-        persistio |= ui_components.mostrar_resultados_persistentes("planes_consulta")
-        persistio |= ui_components.mostrar_resultados_persistentes(
-            "planes_transacciones_consulta"
-        )
-
         if submitted:
             self.procesar_busqueda(plan_input, cuota_input)
+        else:
+            # Solo mostrar resultados persistentes si NO se envió una nueva búsqueda
+            # Separador visual
+            st.divider()
+            # Mostrar resultados persistentes si existen (restauración automática)
+            persistio = False
+            persistio |= ui_components.mostrar_resultados_persistentes(
+                "planes_consulta"
+            )
+            persistio |= ui_components.mostrar_resultados_persistentes(
+                "planes_transacciones_consulta"
+            )
 
     def procesar_busqueda(self, plan_input, cuota_input):
         """Procesa la búsqueda de planes"""
         try:
+            # Separador visual para nueva búsqueda
+            st.divider()
+
             # Verificar que el campo plan haya sido ingresado
             if not plan_input.strip():
                 st.warning("⚠️ El campo Plan es obligatorio.")
@@ -107,18 +112,28 @@ class ConsultaPlanes:
             # Limpiar controles
             ui_components.limpiar_controles(spinner_container_1, cancel_container_1, cancel_key_1)
 
-            if df_planes is not None and len(df_planes) > 0:
-                # Mostrar estadísticas básicas
+            # Validación robusta de resultados para detalles del plan
+            if df_planes is None or df_planes.empty:
+                st.info("ℹ️ No se encontraron detalles para el plan especificado.")
+            else:
                 columnas_metricas_planes = {
                     "total": "Total cuotas",
                     "plan": "Planes únicos"
                 }
-                ui_components.mostrar_estadisticas_basicas(df_planes, columnas_metricas_planes)
-
-                # Mostrar resultados
+                columnas_validas_planes = [
+                    col
+                    for col in columnas_metricas_planes
+                    if col in df_planes.columns or col == "total"
+                ]
+                if columnas_validas_planes:
+                    ui_components.mostrar_estadisticas_basicas(
+                        df_planes,
+                        {
+                            k: columnas_metricas_planes[k]
+                            for k in columnas_validas_planes
+                        },
+                    )
                 ui_components.mostrar_resultados(df_planes, "planes_consulta")
-            else:
-                st.info("ℹ️ No se encontraron detalles para el plan especificado.")
 
             # ===================
             # CONSULTA 2: TRANSACCIONES DEL PLAN
@@ -141,21 +156,32 @@ class ConsultaPlanes:
             # Limpiar controles
             ui_components.limpiar_controles(spinner_container_2, cancel_container_2, cancel_key_2)
 
-            if df_transacciones is not None and len(df_transacciones) > 0:
-                # Mostrar estadísticas básicas
+            # Validación robusta de resultados para transacciones del plan
+            if df_transacciones is None or df_transacciones.empty:
+                st.info("ℹ️ No se encontraron transacciones para el plan especificado.")
+            else:
                 columnas_metricas_transacciones = {
                     "total": "Total registros",
                     "cuenta": "Cuentas únicas",
                     "transaccion": "Transacciones únicas",
                     "sistema": "Sistemas únicos"
                 }
-                ui_components.mostrar_estadisticas_basicas(df_transacciones, columnas_metricas_transacciones)
-
-                # Mostrar resultados
-                ui_components.mostrar_resultados(df_transacciones, "planes_transacciones_consulta")
-            else:
-                st.info("ℹ️ No se encontraron transacciones para el plan especificado.")
-
+                columnas_validas_transacciones = [
+                    col
+                    for col in columnas_metricas_transacciones
+                    if col in df_transacciones.columns or col == "total"
+                ]
+                if columnas_validas_transacciones:
+                    ui_components.mostrar_estadisticas_basicas(
+                        df_transacciones,
+                        {
+                            k: columnas_metricas_transacciones[k]
+                            for k in columnas_validas_transacciones
+                        },
+                    )
+                ui_components.mostrar_resultados(
+                    df_transacciones, "planes_transacciones_consulta"
+                )
         except Exception as e:
             st.error(self.messages["errors"]["database_error"].format(error=e))
 

@@ -51,19 +51,26 @@ class ConsultaDeclaracionesJuradas:
             # Botón de búsqueda
             submitted = st.form_submit_button("🔍 Buscar Declaraciones Juradas", use_container_width=True)
 
-        # Separador visual
-        st.divider()
-
-        # Restaurar resultados persistentes si existen
-        ui_components.mostrar_resultados_persistentes("declaraciones_juradas_consulta")
-        ui_components.mostrar_resultados_persistentes("declaraciones_juradas_adicional")
-
         if submitted:
             self.procesar_busqueda(cuit_input, cuenta_input, id_simplificado_input)
+        else:
+            # Solo mostrar resultados persistentes si NO se envió una nueva búsqueda
+            # Separador visual
+            st.divider()
+            # Restaurar resultados persistentes si existen
+            ui_components.mostrar_resultados_persistentes(
+                "declaraciones_juradas_consulta"
+            )
+            ui_components.mostrar_resultados_persistentes(
+                "declaraciones_juradas_adicional"
+            )
 
     def procesar_busqueda(self, cuit_input, cuenta_input, id_simplificado_input):
         """Procesa la búsqueda de declaraciones juradas"""
         try:
+            # Separador visual para nueva búsqueda
+            st.divider()
+
             # Verificar que al menos un campo haya sido ingresado
             campos = [cuit_input, cuenta_input, id_simplificado_input]
 
@@ -137,19 +144,27 @@ class ConsultaDeclaracionesJuradas:
             # Limpiar controles
             ui_components.limpiar_controles(spinner_container, cancel_container, cancel_key)
 
-            if df is not None and len(df) > 0:
-                # Mostrar estadísticas básicas
+            # Validación robusta de resultados para consulta principal
+            if df is None or df.empty:
+                st.info(
+                    "ℹ️ No se encontraron resultados para los criterios especificados."
+                )
+            else:
                 columnas_metricas = {
                     "total": "Total registros",
                     "cuit": "CUITs únicos",
                     "cuenta": "Cuentas únicas"
                 }
-                ui_components.mostrar_estadisticas_basicas(df, columnas_metricas)
-
-                # Mostrar resultados
+                columnas_validas = [
+                    col
+                    for col in columnas_metricas
+                    if col in df.columns or col == "total"
+                ]
+                if columnas_validas:
+                    ui_components.mostrar_estadisticas_basicas(
+                        df, {k: columnas_metricas[k] for k in columnas_validas}
+                    )
                 ui_components.mostrar_resultados(df, "declaraciones_juradas_consulta")
-            else:
-                st.info("ℹ️ No se encontraron resultados para los criterios especificados.")
 
             # Ejecutar consulta adicional
             st.subheader(
@@ -172,20 +187,31 @@ class ConsultaDeclaracionesJuradas:
             # Limpiar controles adicionales
             ui_components.limpiar_controles(spinner_container_2, cancel_container_2, cancel_key_2)
 
-            if df_adicional is not None and len(df_adicional) > 0:
-                # Mostrar estadísticas básicas para consulta adicional
+            # Validación robusta de resultados para consulta adicional
+            if df_adicional is None or df_adicional.empty:
+                st.info("ℹ️ No se encontraron resultados en la consulta adicional.")
+            else:
                 columnas_metricas_adicional = {
                     "total": "Total registros",
                     "cuit": "CUITs únicos",
                     "cuenta": "Cuentas únicas"
                 }
-                ui_components.mostrar_estadisticas_basicas(df_adicional, columnas_metricas_adicional)
-
-                # Mostrar resultados de consulta adicional
-                ui_components.mostrar_resultados(df_adicional, "declaraciones_juradas_adicional")
-            else:
-                st.info("ℹ️ No se encontraron resultados en la consulta adicional.")
-
+                columnas_validas_adicional = [
+                    col
+                    for col in columnas_metricas_adicional
+                    if col in df_adicional.columns or col == "total"
+                ]
+                if columnas_validas_adicional:
+                    ui_components.mostrar_estadisticas_basicas(
+                        df_adicional,
+                        {
+                            k: columnas_metricas_adicional[k]
+                            for k in columnas_validas_adicional
+                        },
+                    )
+                ui_components.mostrar_resultados(
+                    df_adicional, "declaraciones_juradas_adicional"
+                )
         except Exception as e:
             st.error(self.messages["errors"]["database_error"].format(error=e))
 

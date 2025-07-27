@@ -53,174 +53,267 @@ class UIComponents:
 
     def mostrar_estadisticas_basicas(self, df, columnas_metricas):
         """Muestra estadísticas básicas de los resultados"""
-        cols = st.columns(len(columnas_metricas))
+        if not columnas_metricas:
+            return
 
-        for i, (col_name, col_label) in enumerate(columnas_metricas.items()):
+        # Limitar a máximo 4 métricas para evitar error de índice en Streamlit
+        metricas_items = list(columnas_metricas.items())[:4]
+        num_metricas = len(metricas_items)
+
+        if num_metricas == 0:
+            return
+
+        cols = st.columns(num_metricas)
+
+        for i, (col_name, col_label) in enumerate(metricas_items):
             with cols[i]:
-                if col_name == "total":
-                    st.metric(col_label, len(df))
-                elif col_name in df.columns:
-                    st.metric(col_label, df[col_name].nunique())
+                try:
+                    if col_name == "total":
+                        st.metric(col_label, len(df))
+                    elif col_name in df.columns:
+                        # Verificar que la columna tenga datos válidos
+                        if not df[col_name].isna().all():
+                            unique_count = df[col_name].nunique()
+                            st.metric(col_label, unique_count)
+                        else:
+                            st.metric(col_label, 0)
+                    else:
+                        # Si la columna no existe, mostrar 0
+                        st.metric(col_label, 0)
+                except Exception as e:
+                    # En caso de error, mostrar métrica con valor 0
+                    st.metric(col_label, 0)
 
     def _formatear_dataframe_por_tipos(self, df, filename_prefix):
         """Formatea las columnas del DataFrame de manera simple y robusta"""
-        df_display = df.copy()
+        if df is None or df.empty:
+            return df
 
-        # Lista de campos que sabemos que son identificadores numéricos (sin comas)
-        campos_numericos_sin_comas = [
-            "sistema",
-            "comprobante",
-            "cuenta",
-            "tasa",
-            "ano",
-            "cuota",
-            "transaccion",
-            "orden",
-            "numero_lote",
-            "numero_plan",
-            "cuit",
-            "id_simplificado",
-            "rubro_principal",
-            "plan",
-            "cantidad_cuotas",
-            "cuota_plan",
-        ]
+        try:
+            df_display = df.copy()
 
-        # Formatear solo los campos que existen en el DataFrame
-        for col in campos_numericos_sin_comas:
-            if col in df_display.columns:
-                try:
-                    # Convertir a string y remover comas si existen
-                    df_display[col] = (
-                        df_display[col].astype(str).str.replace(",", "", regex=False)
-                    )
-                except Exception:
-                    # Si hay error, dejar la columna como está
-                    pass
+            # Lista de campos que sabemos que son identificadores numéricos (sin comas)
+            campos_numericos_sin_comas = [
+                "sistema",
+                "comprobante",
+                "cuenta",
+                "tasa",
+                "ano",
+                "cuota",
+                "transaccion",
+                "orden",
+                "numero_lote",
+                "numero_plan",
+                "cuit",
+                "id_simplificado",
+                "rubro_principal",
+                "plan",
+                "cantidad_cuotas",
+                "cuota_plan",
+            ]
 
-        # Para campos decimales (importes), también remover comas pero mantener puntos decimales
-        campos_decimales = [
-            "importe",
-            "recargo",
-            "multa",
-            "recargos",
-            "importe_anticipo",
-            "capital_cuota",
-            "recargos_cuotas",
-            "intereses_cuota",
-            "porcentaje_anticipo",
-        ]
+            # Formatear solo los campos que existen en el DataFrame
+            for col in campos_numericos_sin_comas:
+                if col in df_display.columns:
+                    try:
+                        # Convertir a string y remover comas si existen
+                        df_display[col] = (
+                            df_display[col]
+                            .astype(str)
+                            .str.replace(",", "", regex=False)
+                        )
+                    except Exception:
+                        # Si hay error, dejar la columna como está
+                        pass
 
-        for col in campos_decimales:
-            if col in df_display.columns:
-                try:
-                    # Convertir a string y remover solo comas (mantener puntos decimales)
-                    df_display[col] = (
-                        df_display[col].astype(str).str.replace(",", "", regex=False)
-                    )
-                except Exception:
-                    # Si hay error, dejar la columna como está
-                    pass
+            # Para campos decimales (importes), también remover comas pero mantener puntos decimales
+            campos_decimales = [
+                "importe",
+                "recargo",
+                "multa",
+                "recargos",
+                "importe_anticipo",
+                "capital_cuota",
+                "recargos_cuotas",
+                "intereses_cuota",
+                "porcentaje_anticipo",
+            ]
 
-        return df_display
+            for col in campos_decimales:
+                if col in df_display.columns:
+                    try:
+                        # Convertir a string y remover solo comas (mantener puntos decimales)
+                        df_display[col] = (
+                            df_display[col]
+                            .astype(str)
+                            .str.replace(",", "", regex=False)
+                        )
+                    except Exception:
+                        # Si hay error, dejar la columna como está
+                        pass
+
+            return df_display
+        except Exception as e:
+            # Si hay cualquier error en el formateo, devolver el DataFrame original
+            return df
 
     def mostrar_resultados(self, df, filename_prefix):
         """Muestra los resultados de una consulta con opción de descarga"""
-        # Limpiar cualquier contenedor de criterios de búsqueda anterior
-        if "criterios_container" in st.session_state:
-            st.session_state["criterios_container"].empty()
-            del st.session_state["criterios_container"]
+        try:
+            # Validar entrada
+            if df is None:
+                st.info("ℹ️ No se pudieron obtener resultados.")
+                return
 
-        # Limpiar contenedor de resultados persistentes para evitar duplicados
-        result_container_key = f"persistent_results_container_{filename_prefix}"
-        if result_container_key in st.session_state:
-            st.session_state[result_container_key].empty()
-            del st.session_state[result_container_key]
+            # Limpiar cualquier contenedor de criterios de búsqueda anterior
+            if "criterios_container" in st.session_state:
+                st.session_state["criterios_container"].empty()
+                del st.session_state["criterios_container"]
 
-        # Limpiar datos de Excel anteriores para forzar la regeneración
-        excel_key = f"excel_data_{filename_prefix}"
-        if excel_key in st.session_state:
-            del st.session_state[excel_key]
+            # Limpiar contenedor de resultados persistentes para evitar duplicados
+            result_container_key = f"persistent_results_container_{filename_prefix}"
+            if result_container_key in st.session_state:
+                st.session_state[result_container_key].empty()
+                del st.session_state[result_container_key]
 
-        if df.empty:
-            st.info(self.messages["search"]["no_results"])
-            # Si no hay resultados, asegurarse de que no queden resultados persistentes
+            # Limpiar datos de Excel anteriores para forzar la regeneración
+            excel_key = f"excel_data_{filename_prefix}"
+            if excel_key in st.session_state:
+                del st.session_state[excel_key]
+
+            if df.empty:
+                st.info(self.messages["search"]["no_results"])
+                # Si no hay resultados, asegurarse de que no queden resultados persistentes
+                session_key = f"last_results_{filename_prefix}"
+                if session_key in st.session_state:
+                    del st.session_state[session_key]
+            else:
+                # Guardar resultados en session_state para persistir después de descarga
+                session_key = f"last_results_{filename_prefix}"
+                st.session_state[session_key] = df.copy()
+
+                st.success(
+                    self.messages["search"]["results_found"].format(count=len(df))
+                )
+
+                # Formatear columnas según los tipos de datos correctos
+                df_display = self._formatear_dataframe_por_tipos(df, filename_prefix)
+
+                # Validar que df_display es válido antes de mostrarlo
+                if df_display is not None and not df_display.empty:
+                    # Mostrar dataframe con manejo de errores
+                    try:
+                        st.dataframe(df_display, use_container_width=True)
+                    except Exception as e:
+                        st.error(f"Error al mostrar los datos: {str(e)}")
+                        # Intentar mostrar el DataFrame original sin formatear
+                        try:
+                            st.dataframe(df, use_container_width=True)
+                        except Exception as e2:
+                            st.error(f"Error crítico al mostrar datos: {str(e2)}")
+                            return
+
+                    # Crear el botón de descarga con datos en session_state
+                    self._crear_boton_descarga(df, filename_prefix)
+                else:
+                    st.error("Error: No se pudieron formatear los datos para mostrar.")
+        except Exception as e:
+            st.error(f"Error general en mostrar_resultados: {str(e)}")
+            # Limpiar estado en caso de error
             session_key = f"last_results_{filename_prefix}"
             if session_key in st.session_state:
                 del st.session_state[session_key]
-        else:
-            # Guardar resultados en session_state para persistir después de descarga
-            session_key = f"last_results_{filename_prefix}"
-            st.session_state[session_key] = df.copy()
-
-            st.success(self.messages["search"]["results_found"].format(count=len(df)))
-
-            # Formatear columnas según los tipos de datos correctos
-            df_display = self._formatear_dataframe_por_tipos(df, filename_prefix)
-
-            # Mostrar dataframe
-            st.dataframe(df_display, use_container_width=True)
-
-            # Crear el botón de descarga con datos en session_state
-            self._crear_boton_descarga(df, filename_prefix)
 
     def _crear_boton_descarga(self, df, filename_prefix):
         """Crea el botón de descarga de Excel de manera robusta"""
-        from io import BytesIO
+        try:
+            from io import BytesIO
 
-        # Crear un contenedor para el botón
-        download_container = st.container()
+            # Crear un contenedor para el botón
+            download_container = st.container()
 
-        with download_container:
-            # Preparar los datos de Excel una sola vez
-            if f"excel_data_{filename_prefix}" not in st.session_state:
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                    df.to_excel(writer, index=False, sheet_name="Resultados")
-                st.session_state[f"excel_data_{filename_prefix}"] = output.getvalue()
+            with download_container:
+                # Preparar los datos de Excel una sola vez
+                excel_key = f"excel_data_{filename_prefix}"
+                if excel_key not in st.session_state:
+                    output = BytesIO()
+                    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                        df.to_excel(writer, index=False, sheet_name="Resultados")
+                    st.session_state[excel_key] = output.getvalue()
 
-            # Crear el botón usando los datos guardados
-            excel_data = st.session_state[f"excel_data_{filename_prefix}"]
+                # Crear el botón usando los datos guardados
+                if excel_key in st.session_state:
+                    excel_data = st.session_state[excel_key]
 
-            st.download_button(
-                label=self.messages["search"]["download_button"],
-                data=excel_data,
-                file_name=f"{filename_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                key=f"download_stable_{filename_prefix}",
-                help="Descargar resultados sin perder la búsqueda actual",
-            )
+                    st.download_button(
+                        label=self.messages["search"]["download_button"],
+                        data=excel_data,
+                        file_name=f"{filename_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key=f"download_stable_{filename_prefix}",
+                        help="Descargar resultados sin perder la búsqueda actual",
+                    )
+                else:
+                    st.error("Error: No se pudieron preparar los datos para descarga.")
+        except Exception as e:
+            st.error(f"Error al crear botón de descarga: {str(e)}")
 
     def mostrar_resultados_persistentes(self, filename_prefix):
         """Muestra los resultados guardados en session_state si existen, solo datos sin botón de descarga"""
-        session_key = f"last_results_{filename_prefix}"
+        try:
+            session_key = f"last_results_{filename_prefix}"
 
-        # Verificar si hay resultados válidos para mostrar
-        if (
-            session_key not in st.session_state
-            or st.session_state[session_key] is None
-            or st.session_state[session_key].empty
-        ):
+            # Verificar si hay resultados válidos para mostrar
+            if (
+                session_key not in st.session_state
+                or st.session_state[session_key] is None
+                or st.session_state[session_key].empty
+            ):
+                return False
+
+            # Crear un contenedor específico para los resultados persistentes
+            result_container_key = f"persistent_results_container_{filename_prefix}"
+            if result_container_key not in st.session_state:
+                st.session_state[result_container_key] = st.empty()
+
+            with st.session_state[result_container_key].container():
+                st.info("📋 Mostrando resultados de la última búsqueda:")
+                df = st.session_state[session_key]
+
+                # Validar que el DataFrame es válido
+                if df is None or df.empty:
+                    return False
+
+                st.success(
+                    self.messages["search"]["results_found"].format(count=len(df))
+                )
+
+                # Formatear columnas según los tipos de datos correctos
+                df_display = self._formatear_dataframe_por_tipos(df, filename_prefix)
+
+                # Validar que df_display es válido antes de mostrarlo
+                if df_display is not None and not df_display.empty:
+                    try:
+                        # Mostrar solo el dataframe, SIN botón de descarga
+                        st.dataframe(df_display, use_container_width=True)
+                    except Exception as e:
+                        st.error(f"Error al mostrar datos persistentes: {str(e)}")
+                        # Intentar mostrar el DataFrame original
+                        try:
+                            st.dataframe(df, use_container_width=True)
+                        except Exception as e2:
+                            st.error(
+                                f"Error crítico al mostrar datos persistentes: {str(e2)}"
+                            )
+                            return False
+                else:
+                    st.error("Error: No se pudieron formatear los datos persistentes.")
+                    return False
+
+            return True
+        except Exception as e:
+            st.error(f"Error en mostrar_resultados_persistentes: {str(e)}")
             return False
-
-        # Crear un contenedor específico para los resultados persistentes
-        result_container_key = f"persistent_results_container_{filename_prefix}"
-        if result_container_key not in st.session_state:
-            st.session_state[result_container_key] = st.empty()
-
-        with st.session_state[result_container_key].container():
-            st.info("📋 Mostrando resultados de la última búsqueda:")
-            df = st.session_state[session_key]
-
-            st.success(self.messages["search"]["results_found"].format(count=len(df)))
-
-            # Formatear columnas según los tipos de datos correctos
-            df_display = self._formatear_dataframe_por_tipos(df, filename_prefix)
-
-            # Mostrar solo el dataframe, SIN botón de descarga
-            st.dataframe(df_display, use_container_width=True)
-
-        return True
 
     def crear_controles_busqueda(self, key_prefix):
         """Crea controles para cancelar búsqueda"""
@@ -255,10 +348,24 @@ class UIComponents:
 
     def limpiar_controles(self, spinner_container, cancel_container, cancel_key):
         """Limpia los controles de búsqueda"""
-        spinner_container.empty()
-        cancel_container.empty()
-        # Resetear flag de cancelación
-        st.session_state[cancel_key] = False
+        try:
+            if spinner_container is not None:
+                spinner_container.empty()
+        except Exception:
+            pass
+
+        try:
+            if cancel_container is not None:
+                cancel_container.empty()
+        except Exception:
+            pass
+
+        try:
+            # Resetear flag de cancelación
+            if cancel_key in st.session_state:
+                st.session_state[cancel_key] = False
+        except Exception:
+            pass
 
     def validar_campos_requeridos(self, campos):
         """Valida que al menos un campo haya sido ingresado"""
@@ -268,31 +375,45 @@ class UIComponents:
         self, criterios, titulo="🔍 Buscando con criterios", filename_prefix=None
     ):
         """Muestra los criterios de búsqueda"""
-        if criterios:
-            # Limpiar cualquier resultado persistente anterior
-            if filename_prefix:
-                result_container_key = f"persistent_results_container_{filename_prefix}"
-                if result_container_key in st.session_state:
-                    st.session_state[result_container_key].empty()
+        try:
+            if criterios:
+                # Limpiar cualquier resultado persistente anterior
+                if filename_prefix:
+                    try:
+                        result_container_key = (
+                            f"persistent_results_container_{filename_prefix}"
+                        )
+                        if result_container_key in st.session_state:
+                            st.session_state[result_container_key].empty()
 
-                # Para planes, también limpiar el contenedor de transacciones
-                if filename_prefix == "planes_consulta":
-                    transacciones_container_key = (
-                        "persistent_results_container_planes_transacciones_consulta"
-                    )
-                    if transacciones_container_key in st.session_state:
-                        st.session_state[transacciones_container_key].empty()
+                        # Para planes, también limpiar el contenedor de transacciones
+                        if filename_prefix == "planes_consulta":
+                            transacciones_container_key = "persistent_results_container_planes_transacciones_consulta"
+                            if transacciones_container_key in st.session_state:
+                                st.session_state[transacciones_container_key].empty()
+                    except Exception:
+                        pass
 
-            # Limpiar criterios anteriores si existen
-            if "criterios_container" in st.session_state:
-                st.session_state["criterios_container"].empty()
+                # Limpiar criterios anteriores si existen
+                try:
+                    if "criterios_container" in st.session_state:
+                        st.session_state["criterios_container"].empty()
+                except Exception:
+                    pass
 
-            # Crear nuevo contenedor para criterios
-            st.session_state["criterios_container"] = st.empty()
+                # Crear nuevo contenedor para criterios
+                st.session_state["criterios_container"] = st.empty()
 
-            # Mostrar los nuevos criterios
-            with st.session_state["criterios_container"].container():
-                st.info(f"{titulo}: {' | '.join(criterios)}")
+                # Mostrar los nuevos criterios
+                try:
+                    with st.session_state["criterios_container"].container():
+                        st.info(f"{titulo}: {' | '.join(criterios)}")
+                except Exception as e:
+                    # Si hay error con el contenedor, mostrar directamente
+                    st.info(f"{titulo}: {' | '.join(criterios)}")
+        except Exception as e:
+            # En caso de error total, mostrar mensaje básico
+            st.info(f"🔍 Ejecutando búsqueda...")
 
 
 # Instancia global de componentes UI

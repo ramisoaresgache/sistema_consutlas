@@ -58,18 +58,23 @@ class ConsultaLotesBancarios:
             # Botón de búsqueda
             submitted = st.form_submit_button("🔍 Buscar en Banco", use_container_width=True)
 
-        # Separador visual
-        st.divider()
-
-        # Restaurar resultados persistentes si existen
-        ui_components.mostrar_resultados_persistentes("bco_cab_consulta")
-
         if submitted:
-            self.procesar_busqueda(cuentas_input, registros_input, fecha_cobro, comprobantes_input_banco)
+            self.procesar_busqueda(
+                cuentas_input, registros_input, fecha_cobro, comprobantes_input_banco
+            )
+        else:
+            # Solo mostrar resultados persistentes si NO se envió una nueva búsqueda
+            # Separador visual
+            st.divider()
+            # Restaurar resultados persistentes si existen
+            ui_components.mostrar_resultados_persistentes("bco_cab_consulta")
 
     def procesar_busqueda(self, cuentas_input, registros_input, fecha_cobro, comprobantes_input_banco):
         """Procesa la búsqueda de lotes bancarios"""
         try:
+            # Separador visual para nueva búsqueda
+            st.divider()
+
             # Construir condiciones WHERE dinámicamente
             conditions = []
 
@@ -143,18 +148,27 @@ class ConsultaLotesBancarios:
             # Limpiar controles
             ui_components.limpiar_controles(spinner_container, cancel_container, cancel_key)
 
-            if df is not None:
-                # Mostrar estadísticas básicas
-                columnas_metricas = {
-                    "total": "Total registros",
-                    "cuenta": "Cuentas únicas",
-                    "fecha_cobro": "Fechas únicas"
-                }
-                ui_components.mostrar_estadisticas_basicas(df, columnas_metricas)
+            # Validación robusta de resultados
+            if df is None or df.empty:
+                st.info("ℹ️ No se encontraron resultados para los criterios ingresados.")
+                return
 
-                # Mostrar resultados
-                ui_components.mostrar_resultados(df, "bco_cab_consulta")
+            # Validar que las columnas esperadas existen antes de mostrar métricas
+            columnas_metricas = {
+                "total": "Total registros",
+                "cuenta": "Cuentas únicas",
+                "fecha_cobro": "Fechas únicas",
+            }
+            columnas_validas = [
+                col for col in columnas_metricas if col in df.columns or col == "total"
+            ]
+            if columnas_validas:
+                ui_components.mostrar_estadisticas_basicas(
+                    df, {k: columnas_metricas[k] for k in columnas_validas}
+                )
 
+            # Mostrar resultados
+            ui_components.mostrar_resultados(df, "bco_cab_consulta")
         except Exception as e:
             st.error(self.messages["errors"]["database_error"].format(error=e))
 

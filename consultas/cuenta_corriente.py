@@ -86,12 +86,6 @@ class ConsultaCuentaCorriente:
             # Botón de búsqueda
             submitted_ctacte = st.form_submit_button("🔍 Buscar en Cta Cte", use_container_width=True)
 
-        # Separador visual
-        st.divider()
-
-        # Restaurar resultados persistentes si existen
-        ui_components.mostrar_resultados_persistentes("ctacte_consulta")
-
         if submitted_ctacte:
             self.procesar_busqueda(
                 cuenta_input,
@@ -103,6 +97,12 @@ class ConsultaCuentaCorriente:
                 comprob_input,
                 # sistema_input,
             )
+        else:
+            # Solo mostrar resultados persistentes si NO se envió una nueva búsqueda
+            # Separador visual
+            st.divider()
+            # Restaurar resultados persistentes si existen
+            ui_components.mostrar_resultados_persistentes("ctacte_consulta")
 
     def procesar_busqueda(
         self,
@@ -117,6 +117,9 @@ class ConsultaCuentaCorriente:
     ):
         """Procesa la búsqueda de cuenta corriente"""
         try:
+            # Separador visual para nueva búsqueda
+            st.divider()
+
             # Verificar que el campo cuenta (obligatorio) haya sido ingresado
             if not cuenta_input.strip():
                 st.warning("⚠️ El campo Cuenta es obligatorio.")
@@ -260,20 +263,28 @@ class ConsultaCuentaCorriente:
             # Limpiar controles
             ui_components.limpiar_controles(spinner_container, cancel_container, cancel_key)
 
-            if df is not None:
-                # Mostrar estadísticas básicas
-                columnas_metricas = {
-                    "total": "Total registros",
-                    "cuenta": "Cuentas únicas",
-                    "transaccion": "Transacciones únicas",
-                    "tasa": "Tasas únicas",
-                    "sistema": "Sistemas únicos",
-                }
-                ui_components.mostrar_estadisticas_basicas(df, columnas_metricas)
+            # Validación robusta de resultados
+            if df is None or df.empty:
+                st.info("ℹ️ No se encontraron resultados para los criterios ingresados.")
+                return
 
-                # Mostrar resultados
-                ui_components.mostrar_resultados(df, "ctacte_consulta")
+            # Validar que las columnas esperadas existen antes de mostrar métricas
+            columnas_metricas = {
+                "total": "Total registros",
+                "cuenta": "Cuentas únicas",
+                "transaccion": "Transacciones únicas",
+                "tasa": "Tasas únicas",
+            }
+            columnas_validas = [
+                col for col in columnas_metricas if col in df.columns or col == "total"
+            ]
+            if columnas_validas:
+                ui_components.mostrar_estadisticas_basicas(
+                    df, {k: columnas_metricas[k] for k in columnas_validas}
+                )
 
+            # Mostrar resultados
+            ui_components.mostrar_resultados(df, "ctacte_consulta")
         except Exception as e:
             st.error(self.messages["errors"]["database_error"].format(error=e))
 
