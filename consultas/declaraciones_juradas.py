@@ -21,11 +21,7 @@ class ConsultaDeclaracionesJuradas:
         st.header(self.config["header"])
         st.write(self.config["description"])
 
-        # Restaurar resultados persistentes si existen
-        ui_components.mostrar_resultados_persistentes("declaraciones_juradas_consulta")
-        ui_components.mostrar_resultados_persistentes("declaraciones_juradas_adicional")
-
-        # Crear formulario con múltiples campos
+        # Crear formulario con múltiples campos SIEMPRE arriba
         with st.form("consulta_declaraciones_form"):
             col1, col2 = st.columns(2)
 
@@ -54,6 +50,13 @@ class ConsultaDeclaracionesJuradas:
 
             # Botón de búsqueda
             submitted = st.form_submit_button("🔍 Buscar Declaraciones Juradas", use_container_width=True)
+
+        # Separador visual
+        st.divider()
+
+        # Restaurar resultados persistentes si existen
+        ui_components.mostrar_resultados_persistentes("declaraciones_juradas_consulta")
+        ui_components.mostrar_resultados_persistentes("declaraciones_juradas_adicional")
 
         if submitted:
             self.procesar_busqueda(cuit_input, cuenta_input, id_simplificado_input)
@@ -109,7 +112,11 @@ class ConsultaDeclaracionesJuradas:
             if id_simplificado_input.strip():
                 criterios.append(f"ID Simplificado: {id_simplificado_input.strip()}")
 
-            ui_components.mostrar_criterios_busqueda(criterios, "🔍 Buscando declaraciones juradas con criterios")
+            ui_components.mostrar_criterios_busqueda(
+                criterios,
+                "🔍 Buscando declaraciones juradas con criterios",
+                "declaraciones_juradas_consulta",
+            )
 
             # Crear controles de búsqueda
             spinner_container, cancel_container, cancel_key = ui_components.crear_controles_busqueda("declaraciones")

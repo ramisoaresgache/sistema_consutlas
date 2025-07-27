@@ -21,10 +21,7 @@ class ConsultaLotesBancarios:
         st.header(self.config["header"])
         st.write(self.config["description"])
 
-        # Restaurar resultados persistentes si existen
-        ui_components.mostrar_resultados_persistentes("bco_cab_consulta")
-
-        # Crear formulario con múltiples campos
+        # Crear formulario con múltiples campos SIEMPRE arriba
         with st.form("consulta_banco_form"):
             col1, col2 = st.columns(2)
 
@@ -60,6 +57,12 @@ class ConsultaLotesBancarios:
 
             # Botón de búsqueda
             submitted = st.form_submit_button("🔍 Buscar en Banco", use_container_width=True)
+
+        # Separador visual
+        st.divider()
+
+        # Restaurar resultados persistentes si existen
+        ui_components.mostrar_resultados_persistentes("bco_cab_consulta")
 
         if submitted:
             self.procesar_busqueda(cuentas_input, registros_input, fecha_cobro, comprobantes_input_banco)
@@ -115,7 +118,11 @@ class ConsultaLotesBancarios:
                     comp_texto += "..."
                 criterios.append(f"Comprobantes: {comp_texto}")
 
-            ui_components.mostrar_criterios_busqueda(criterios, "🔍 Buscando en lotes bancarios con criterios")
+            ui_components.mostrar_criterios_busqueda(
+                criterios,
+                "🔍 Buscando en lotes bancarios con criterios",
+                "bco_cab_consulta",
+            )
 
             # Crear controles de búsqueda
             spinner_container, cancel_container, cancel_key = ui_components.crear_controles_busqueda("banco")

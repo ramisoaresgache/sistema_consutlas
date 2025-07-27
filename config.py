@@ -167,7 +167,7 @@ SQL_QUERIES = {
         WHERE {where_clause}
         AND a.id_simplificado = b.id_simplificado
         AND a.id_simplificado = c.id_simplificado
-        LIMIT 1000
+
     """,
     "planes": """
         SELECT 
@@ -187,7 +187,7 @@ SQL_QUERIES = {
         WHERE a.n_plan = b.n_plan
         AND {where_clause}
         ORDER BY a.n_plan, b.n_cuota_plan
-        LIMIT 1000
+
     """,
     "planes_transacciones": """
         SELECT 

@@ -62,10 +62,92 @@ class UIComponents:
                 elif col_name in df.columns:
                     st.metric(col_label, df[col_name].nunique())
 
+    def _formatear_dataframe_por_tipos(self, df, filename_prefix):
+        """Formatea las columnas del DataFrame de manera simple y robusta"""
+        df_display = df.copy()
+
+        # Lista de campos que sabemos que son identificadores numéricos (sin comas)
+        campos_numericos_sin_comas = [
+            "sistema",
+            "comprobante",
+            "cuenta",
+            "tasa",
+            "ano",
+            "cuota",
+            "transaccion",
+            "orden",
+            "numero_lote",
+            "numero_plan",
+            "cuit",
+            "id_simplificado",
+            "rubro_principal",
+            "plan",
+            "cantidad_cuotas",
+            "cuota_plan",
+        ]
+
+        # Formatear solo los campos que existen en el DataFrame
+        for col in campos_numericos_sin_comas:
+            if col in df_display.columns:
+                try:
+                    # Convertir a string y remover comas si existen
+                    df_display[col] = (
+                        df_display[col].astype(str).str.replace(",", "", regex=False)
+                    )
+                except Exception:
+                    # Si hay error, dejar la columna como está
+                    pass
+
+        # Para campos decimales (importes), también remover comas pero mantener puntos decimales
+        campos_decimales = [
+            "importe",
+            "recargo",
+            "multa",
+            "recargos",
+            "importe_anticipo",
+            "capital_cuota",
+            "recargos_cuotas",
+            "intereses_cuota",
+            "porcentaje_anticipo",
+        ]
+
+        for col in campos_decimales:
+            if col in df_display.columns:
+                try:
+                    # Convertir a string y remover solo comas (mantener puntos decimales)
+                    df_display[col] = (
+                        df_display[col].astype(str).str.replace(",", "", regex=False)
+                    )
+                except Exception:
+                    # Si hay error, dejar la columna como está
+                    pass
+
+        return df_display
+
     def mostrar_resultados(self, df, filename_prefix):
         """Muestra los resultados de una consulta con opción de descarga"""
+        # Limpiar cualquier contenedor de criterios de búsqueda anterior
+        if "criterios_container" in st.session_state:
+            st.session_state["criterios_container"].empty()
+            del st.session_state["criterios_container"]
+
+        # Limpiar contenedor de resultados persistentes para evitar duplicados
+        result_container_key = f"persistent_results_container_{filename_prefix}"
+        if result_container_key in st.session_state:
+            st.session_state[result_container_key].empty()
+            del st.session_state[result_container_key]
+
+        # Limpiar datos de Excel anteriores para forzar la regeneración
+        excel_key = f"excel_data_{filename_prefix}"
+        if excel_key in st.session_state:
+            del st.session_state[excel_key]
+
         if df.empty:
             st.info(self.messages["search"]["no_results"])
+            # Si no hay resultados, asegurarse de que no queden resultados persistentes
+            session_key = f"last_results_{filename_prefix}"
+            if session_key in st.session_state:
+                del st.session_state[session_key]
         else:
             # Guardar resultados en session_state para persistir después de descarga
             session_key = f"last_results_{filename_prefix}"
@@ -73,148 +155,8 @@ class UIComponents:
 
             st.success(self.messages["search"]["results_found"].format(count=len(df)))
 
-            # Formatear columnas específicas según el tipo de consulta
-            df_display = df.copy()
-
-            # Para recibos, formatear la columna comprobante sin comas
-            if (
-                filename_prefix == "recibos_consulta"
-                and "comprobante" in df_display.columns
-            ):
-                df_display["comprobante"] = df_display["comprobante"].astype(str)
-
-            # Para lotes bancarios, formatear la columna comprobante sin comas
-            elif (
-                filename_prefix in ["lotes_consulta", "bco_cab_consulta"]
-                and "comprobante" in df_display.columns
-            ):
-                df_display["comprobante"] = df_display["comprobante"].astype(str)
-
-            # Para cuenta corriente, formatear las columnas numéricas según su tipo
-            elif filename_prefix in ["cuenta_corriente_consulta", "ctacte_consulta"]:
-                # Identificadores enteros (sin comas)
-                if "comprobante" in df_display.columns:
-                    df_display["comprobante"] = (
-                        df_display["comprobante"].astype(str).str.replace(",", "")
-                    )
-                if "transaccion" in df_display.columns:
-                    df_display["transaccion"] = (
-                        df_display["transaccion"].astype(str).str.replace(",", "")
-                    )
-                if "cuenta" in df_display.columns:
-                    df_display["cuenta"] = (
-                        df_display["cuenta"].astype(str).str.replace(",", "")
-                    )
-
-                # Campos smallint (sin comas)
-                if "ano" in df_display.columns:
-                    df_display["ano"] = (
-                        df_display["ano"].astype(str).str.replace(",", "")
-                    )
-                if "cuota" in df_display.columns:
-                    df_display["cuota"] = (
-                        df_display["cuota"].astype(str).str.replace(",", "")
-                    )
-                if "tasa" in df_display.columns:
-                    df_display["tasa"] = (
-                        df_display["tasa"].astype(str).str.replace(",", "")
-                    )
-
-                # Campos decimales (mantener formato decimal pero sin comas de miles)
-                for col in ["importe", "recargo", "multa"]:
-                    if col in df_display.columns:
-                        # Limpiar formato y convertir a string sin comas
-                        df_display[col] = (
-                            df_display[col].astype(str).str.replace(",", "")
-                        )
-
-            # Para declaraciones juradas, formatear las columnas numéricas que son identificadores
-            elif filename_prefix in [
-                "declaraciones_juradas_consulta",
-                "declaraciones_juradas_adicional",
-            ]:
-                if "cuit" in df_display.columns:
-                    df_display["cuit"] = (
-                        df_display["cuit"].astype(str).str.replace(",", "")
-                    )
-                if "cuenta" in df_display.columns:
-                    df_display["cuenta"] = (
-                        df_display["cuenta"].astype(str).str.replace(",", "")
-                    )
-                if "id_simplificado" in df_display.columns:
-                    df_display["id_simplificado"] = (
-                        df_display["id_simplificado"].astype(str).str.replace(",", "")
-                    )
-
-            # Para planes, formatear las columnas numéricas según su tipo
-            elif filename_prefix in [
-                "planes_consulta",
-                "planes_transacciones_consulta",
-            ]:
-                # Identificadores enteros (sin comas)
-                if "plan" in df_display.columns:
-                    df_display["plan"] = (
-                        df_display["plan"].astype(str).str.replace(",", "")
-                    )
-                if "cuota_plan" in df_display.columns:
-                    df_display["cuota_plan"] = (
-                        df_display["cuota_plan"].astype(str).str.replace(",", "")
-                    )
-                if "cantidad_cuotas" in df_display.columns:
-                    df_display["cantidad_cuotas"] = (
-                        df_display["cantidad_cuotas"].astype(str).str.replace(",", "")
-                    )
-                if "porcentaje_anticipo" in df_display.columns:
-                    df_display["porcentaje_anticipo"] = (
-                        df_display["porcentaje_anticipo"]
-                        .astype(str)
-                        .str.replace(",", "")
-                    )
-
-                # Campos similares a cuenta corriente
-                if "comprobante" in df_display.columns:
-                    df_display["comprobante"] = (
-                        df_display["comprobante"].astype(str).str.replace(",", "")
-                    )
-                if "transaccion" in df_display.columns:
-                    df_display["transaccion"] = (
-                        df_display["transaccion"].astype(str).str.replace(",", "")
-                    )
-                if "cuenta" in df_display.columns:
-                    df_display["cuenta"] = (
-                        df_display["cuenta"].astype(str).str.replace(",", "")
-                    )
-                if "ano" in df_display.columns:
-                    df_display["ano"] = (
-                        df_display["ano"].astype(str).str.replace(",", "")
-                    )
-                if "cuota" in df_display.columns:
-                    df_display["cuota"] = (
-                        df_display["cuota"].astype(str).str.replace(",", "")
-                    )
-                if "tasa" in df_display.columns:
-                    df_display["tasa"] = (
-                        df_display["tasa"].astype(str).str.replace(",", "")
-                    )
-                if "orden" in df_display.columns:
-                    df_display["orden"] = (
-                        df_display["orden"].astype(str).str.replace(",", "")
-                    )
-
-                # Campos decimales (sin comas de miles)
-                for col in [
-                    "importe_anticipo",
-                    "capital_cuota",
-                    "recargos_cuotas",
-                    "intereses_cuota",
-                    "multa",
-                    "importe",
-                    "recargo",
-                ]:
-                    if col in df_display.columns:
-                        df_display[col] = (
-                            df_display[col].astype(str).str.replace(",", "")
-                        )
+            # Formatear columnas según los tipos de datos correctos
+            df_display = self._formatear_dataframe_por_tipos(df, filename_prefix)
 
             # Mostrar dataframe
             st.dataframe(df_display, use_container_width=True)
@@ -250,13 +192,35 @@ class UIComponents:
             )
 
     def mostrar_resultados_persistentes(self, filename_prefix):
-        """Muestra los resultados guardados en session_state si existen"""
+        """Muestra los resultados guardados en session_state si existen, solo datos sin botón de descarga"""
         session_key = f"last_results_{filename_prefix}"
-        if session_key in st.session_state:
+
+        # Verificar si hay resultados válidos para mostrar
+        if (
+            session_key not in st.session_state
+            or st.session_state[session_key] is None
+            or st.session_state[session_key].empty
+        ):
+            return False
+
+        # Crear un contenedor específico para los resultados persistentes
+        result_container_key = f"persistent_results_container_{filename_prefix}"
+        if result_container_key not in st.session_state:
+            st.session_state[result_container_key] = st.empty()
+
+        with st.session_state[result_container_key].container():
             st.info("📋 Mostrando resultados de la última búsqueda:")
-            self.mostrar_resultados(st.session_state[session_key], filename_prefix)
-            return True
-        return False
+            df = st.session_state[session_key]
+
+            st.success(self.messages["search"]["results_found"].format(count=len(df)))
+
+            # Formatear columnas según los tipos de datos correctos
+            df_display = self._formatear_dataframe_por_tipos(df, filename_prefix)
+
+            # Mostrar solo el dataframe, SIN botón de descarga
+            st.dataframe(df_display, use_container_width=True)
+
+        return True
 
     def crear_controles_busqueda(self, key_prefix):
         """Crea controles para cancelar búsqueda"""
@@ -300,10 +264,35 @@ class UIComponents:
         """Valida que al menos un campo haya sido ingresado"""
         return any(campo.strip() for campo in campos)
 
-    def mostrar_criterios_busqueda(self, criterios, titulo="🔍 Buscando con criterios"):
+    def mostrar_criterios_busqueda(
+        self, criterios, titulo="🔍 Buscando con criterios", filename_prefix=None
+    ):
         """Muestra los criterios de búsqueda"""
         if criterios:
-            st.info(f"{titulo}: {' | '.join(criterios)}")
+            # Limpiar cualquier resultado persistente anterior
+            if filename_prefix:
+                result_container_key = f"persistent_results_container_{filename_prefix}"
+                if result_container_key in st.session_state:
+                    st.session_state[result_container_key].empty()
+
+                # Para planes, también limpiar el contenedor de transacciones
+                if filename_prefix == "planes_consulta":
+                    transacciones_container_key = (
+                        "persistent_results_container_planes_transacciones_consulta"
+                    )
+                    if transacciones_container_key in st.session_state:
+                        st.session_state[transacciones_container_key].empty()
+
+            # Limpiar criterios anteriores si existen
+            if "criterios_container" in st.session_state:
+                st.session_state["criterios_container"].empty()
+
+            # Crear nuevo contenedor para criterios
+            st.session_state["criterios_container"] = st.empty()
+
+            # Mostrar los nuevos criterios
+            with st.session_state["criterios_container"].container():
+                st.info(f"{titulo}: {' | '.join(criterios)}")
 
 
 # Instancia global de componentes UI

@@ -20,13 +20,8 @@ class ConsultaPlanes:
         """Muestra la interfaz de consulta de planes"""
         st.header(self.config["header"])
         st.write(self.config["description"])
-        
-        # Mostrar resultados persistentes si existen (restauración automática)
-        persistio = False
-        persistio |= ui_components.mostrar_resultados_persistentes("planes_consulta")
-        persistio |= ui_components.mostrar_resultados_persistentes("planes_transacciones_consulta")
 
-        # Crear formulario
+        # Crear formulario SIEMPRE arriba
         with st.form("consulta_planes_form"):
             col1, col2 = st.columns(2)
             with col1:
@@ -43,6 +38,16 @@ class ConsultaPlanes:
                 )
             submitted = st.form_submit_button("🔍 Buscar Plan", use_container_width=True)
 
+        # Separador visual
+        st.divider()
+
+        # Mostrar resultados persistentes si existen (restauración automática)
+        persistio = False
+        persistio |= ui_components.mostrar_resultados_persistentes("planes_consulta")
+        persistio |= ui_components.mostrar_resultados_persistentes(
+            "planes_transacciones_consulta"
+        )
+
         if submitted:
             self.procesar_busqueda(plan_input, cuota_input)
 
@@ -53,7 +58,7 @@ class ConsultaPlanes:
             if not plan_input.strip():
                 st.warning("⚠️ El campo Plan es obligatorio.")
                 return
-            
+
             # Validar que sea un número
             if not plan_input.strip().isdigit():
                 st.warning("⚠️ El plan debe ser un número válido.")
@@ -66,40 +71,42 @@ class ConsultaPlanes:
 
             # Construir condiciones WHERE
             conditions = [f"a.n_plan = {plan_input.strip()}"]
-            
+
             # Agregar filtro de cuota si se especificó
             if cuota_input.strip():
                 conditions.append(f"b.n_cuota_plan = {cuota_input.strip()}")
-            
+
             plan_condition = " AND ".join(conditions)
 
             # Mostrar criterios de búsqueda
             criterios = [f"🎯 Plan: {plan_input.strip()}"]
             if cuota_input.strip():
                 criterios.append(f"Cuota: {cuota_input.strip()}")
-            ui_components.mostrar_criterios_busqueda(criterios, "🔍 Consultando plan de pago")
+            ui_components.mostrar_criterios_busqueda(
+                criterios, "🔍 Consultando plan de pago", "planes_consulta"
+            )
 
             # ===================
             # CONSULTA 1: DETALLES DEL PLAN
             # ===================
             st.subheader("📋 Resultados - Detalles del Plan")
-            
+
             # Crear controles para la primera consulta
             spinner_container_1, cancel_container_1, cancel_key_1 = ui_components.crear_controles_busqueda("planes_detalles")
             ui_components.mostrar_boton_cancelar(cancel_container_1, "planes_detalles")
-            
+
             def consulta_planes():
                 return db_manager.consultar_planes(plan_condition)
-            
+
             df_planes = ui_components.ejecutar_con_spinner(
                 spinner_container_1,
                 "🔍 Consultando detalles del plan... Presioná 'Cancelar Búsqueda' si querés detener.",
                 consulta_planes
             )
-            
+
             # Limpiar controles
             ui_components.limpiar_controles(spinner_container_1, cancel_container_1, cancel_key_1)
-            
+
             if df_planes is not None and len(df_planes) > 0:
                 # Mostrar estadísticas básicas
                 columnas_metricas_planes = {
@@ -107,7 +114,7 @@ class ConsultaPlanes:
                     "plan": "Planes únicos"
                 }
                 ui_components.mostrar_estadisticas_basicas(df_planes, columnas_metricas_planes)
-                
+
                 # Mostrar resultados
                 ui_components.mostrar_resultados(df_planes, "planes_consulta")
             else:
@@ -117,23 +124,23 @@ class ConsultaPlanes:
             # CONSULTA 2: TRANSACCIONES DEL PLAN
             # ===================
             st.subheader("💳 Resultados - Detalles de cuotas del Plan")
-            
+
             # Crear controles para la segunda consulta
             spinner_container_2, cancel_container_2, cancel_key_2 = ui_components.crear_controles_busqueda("planes_transacciones")
             ui_components.mostrar_boton_cancelar(cancel_container_2, "planes_transacciones")
-            
+
             def consulta_planes_transacciones():
                 return db_manager.consultar_planes_transacciones(plan_condition)
-            
+
             df_transacciones = ui_components.ejecutar_con_spinner(
                 spinner_container_2,
                 "🔍 Consultando transacciones del plan... Presioná 'Cancelar Búsqueda' si querés detener.",
                 consulta_planes_transacciones
             )
-            
+
             # Limpiar controles
             ui_components.limpiar_controles(spinner_container_2, cancel_container_2, cancel_key_2)
-            
+
             if df_transacciones is not None and len(df_transacciones) > 0:
                 # Mostrar estadísticas básicas
                 columnas_metricas_transacciones = {
@@ -143,7 +150,7 @@ class ConsultaPlanes:
                     "sistema": "Sistemas únicos"
                 }
                 ui_components.mostrar_estadisticas_basicas(df_transacciones, columnas_metricas_transacciones)
-                
+
                 # Mostrar resultados
                 ui_components.mostrar_resultados(df_transacciones, "planes_transacciones_consulta")
             else:

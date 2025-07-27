@@ -21,18 +21,29 @@ class ConsultaRecibos:
         st.header(self.config["header"])
         st.write(self.config["description"])
 
+        # Formulario para controlar el envío
+        with st.form("consulta_recibos_form"):
+            # Entrada de comprobantes
+            comprobantes_input = st.text_input(
+                "Número/s de comprobante/s (podes poner mas de 1 es opcional):",
+                placeholder="Ej: 123456, 789012, 345678",
+                help="Ingresá los números de comprobante separados por coma",
+            )
+
+            # Botón de envío del formulario
+            submitted = st.form_submit_button(
+                "🔍 Buscar Recibos", use_container_width=True
+            )
+
+        # Procesar cuando se envía el formulario
+        if submitted:
+            self.procesar_busqueda(comprobantes_input)
+
+        # Separador visual
+        st.divider()
+
         # Restaurar resultados persistentes si existen
         ui_components.mostrar_resultados_persistentes("recibos_consulta")
-
-        # Entrada de comprobantes
-        comprobantes_input = st.text_input(
-            "Número/s de comprobante/s (podes poner mas de 1 es opcional):",
-            placeholder="Ej: 123456, 789012, 345678",
-            help="Ingresá los números de comprobante separados por coma"
-        )
-
-        if st.button("🔍 Buscar Recibos", use_container_width=True):
-            self.procesar_busqueda(comprobantes_input)
 
     def procesar_busqueda(self, comprobantes_input):
         """Procesa la búsqueda de recibos"""
@@ -47,12 +58,18 @@ class ConsultaRecibos:
                 st.warning(self.messages["validation"]["min_one_comprobante"])
                 return
 
-            # Mostrar información de la búsqueda
+            # Mostrar información de la búsqueda con limpieza de resultados anteriores
             comprobantes_texto = ', '.join(comprobantes[:5])
             if len(comprobantes) > 5:
                 comprobantes_texto += "..."
 
-            st.info(f"🔍 Buscando {len(comprobantes)} comprobante(s): {comprobantes_texto}")
+            criterios = [
+                f"Comprobantes: {comprobantes_texto}",
+                f"Total: {len(comprobantes)}",
+            ]
+            ui_components.mostrar_criterios_busqueda(
+                criterios, "🔍 Buscando recibos con criterios", "recibos_consulta"
+            )
 
             # Crear controles de búsqueda
             spinner_container, cancel_container, cancel_key = ui_components.crear_controles_busqueda("recibos")
