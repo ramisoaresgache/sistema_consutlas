@@ -46,7 +46,15 @@ class AuthManager:
 
     def mostrar_login(self):
         """Muestra la pantalla de login"""
-        st.title(self.messages["login"]["title"])
+        # Centrar el título usando HTML y CSS
+        st.markdown(
+            f"""
+            <div style='text-align: center;'>
+                <h1>{self.messages["login"]["title"]}</h1>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
         st.markdown("---")
 
         col1, col2, col3 = st.columns([1, 2, 1])

@@ -69,7 +69,7 @@ TABS_CONFIG = {
 # Mensajes del sistema
 MESSAGES = {
     "login": {
-        "title": "🔐 Sistema de Consultas - Login",
+        "title": "🏢 Sistema de Consultas - Login",
         "subtitle": "Ingresá tus credenciales",
         "legajo_help": "Tu número de legajo personal",
         "password_help": "Por ahora, usá tu mismo número de legajo",
