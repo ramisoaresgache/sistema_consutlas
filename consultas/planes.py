@@ -50,6 +50,9 @@ class ConsultaPlanes:
                 "planes_consulta"
             )
             persistio |= ui_components.mostrar_resultados_persistentes(
+                "planes_cuotas_consulta"
+            )
+            persistio |= ui_components.mostrar_resultados_persistentes(
                 "planes_transacciones_consulta"
             )
 
@@ -82,6 +85,13 @@ class ConsultaPlanes:
                 conditions.append(f"b.n_cuota_plan = {cuota_input.strip()}")
 
             plan_condition = " AND ".join(conditions)
+            
+            # Para la consulta de transacciones, necesitamos usar la tabla correcta para la cuota
+            conditions_transacciones = [f"a.n_plan = {plan_input.strip()}"]
+            if cuota_input.strip():
+                conditions_transacciones.append(f"a.n_cuota_plan = {cuota_input.strip()}")
+            
+            plan_condition_transacciones = " AND ".join(conditions_transacciones)
 
             # Mostrar criterios de búsqueda
             criterios = [f"🎯 Plan: {plan_input.strip()}"]
@@ -136,25 +146,69 @@ class ConsultaPlanes:
                 ui_components.mostrar_resultados(df_planes, "planes_consulta")
 
             # ===================
-            # CONSULTA 2: TRANSACCIONES DEL PLAN
+            # CONSULTA 2: CUOTAS DETALLADAS DEL PLAN
             # ===================
-            st.subheader("💳 Resultados - Detalles de cuotas del Plan")
+            st.subheader("📊 Resultados - Cuotas Detalladas del Plan")
 
             # Crear controles para la segunda consulta
-            spinner_container_2, cancel_container_2, cancel_key_2 = ui_components.crear_controles_busqueda("planes_transacciones")
-            ui_components.mostrar_boton_cancelar(cancel_container_2, "planes_transacciones")
+            spinner_container_2, cancel_container_2, cancel_key_2 = ui_components.crear_controles_busqueda("planes_cuotas")
+            ui_components.mostrar_boton_cancelar(cancel_container_2, "planes_cuotas")
+
+            def consulta_planes_cuotas():
+                return db_manager.consultar_planes_cuotas(plan_condition)
+
+            df_cuotas = ui_components.ejecutar_con_spinner(
+                spinner_container_2,
+                "🔍 Consultando cuotas detalladas del plan... Presioná 'Cancelar Búsqueda' si querés detener.",
+                consulta_planes_cuotas
+            )
+
+            # Limpiar controles
+            ui_components.limpiar_controles(spinner_container_2, cancel_container_2, cancel_key_2)
+
+            # Validación robusta de resultados para cuotas del plan
+            if df_cuotas is None or df_cuotas.empty:
+                st.info("ℹ️ No se encontraron cuotas detalladas para el plan especificado.")
+            else:
+                columnas_metricas_cuotas = {
+                    "total": "Total cuotas",
+                    "plan": "Planes únicos"
+                }
+                columnas_validas_cuotas = [
+                    col
+                    for col in columnas_metricas_cuotas
+                    if col in df_cuotas.columns or col == "total"
+                ]
+                if columnas_validas_cuotas:
+                    ui_components.mostrar_estadisticas_basicas(
+                        df_cuotas,
+                        {
+                            k: columnas_metricas_cuotas[k]
+                            for k in columnas_validas_cuotas
+                        },
+                    )
+                ui_components.mostrar_resultados(df_cuotas, "planes_cuotas_consulta")
+
+            # ===================
+            # CONSULTA 3: TRANSACCIONES DEL PLAN
+            # ===================
+            st.subheader("💳 Resultados - Transacciones del Plan")
+
+            # Crear controles para la tercera consulta
+            spinner_container_3, cancel_container_3, cancel_key_3 = ui_components.crear_controles_busqueda("planes_transacciones")
+            ui_components.mostrar_boton_cancelar(cancel_container_3, "planes_transacciones")
 
             def consulta_planes_transacciones():
-                return db_manager.consultar_planes_transacciones(plan_condition)
+                return db_manager.consultar_planes_transacciones(plan_condition_transacciones)
 
             df_transacciones = ui_components.ejecutar_con_spinner(
-                spinner_container_2,
+                spinner_container_3,
                 "🔍 Consultando transacciones del plan... Presioná 'Cancelar Búsqueda' si querés detener.",
                 consulta_planes_transacciones
             )
 
             # Limpiar controles
-            ui_components.limpiar_controles(spinner_container_2, cancel_container_2, cancel_key_2)
+            ui_components.limpiar_controles(spinner_container_3, cancel_container_3, cancel_key_3)
 
             # Validación robusta de resultados para transacciones del plan
             if df_transacciones is None or df_transacciones.empty:

@@ -128,6 +128,12 @@ class DatabaseManager:
         query = SQL_QUERIES["planes"].format(where_clause=where_clause)
         return self.execute_query(query)
 
+    def consultar_planes_cuotas(self, conditions):
+        """Consulta las cuotas detalladas del plan"""
+        where_clause = conditions
+        query = SQL_QUERIES["planes_consulta_cuotas"].format(where_clause=where_clause)
+        return self.execute_query(query)
+
     def consultar_planes_transacciones(self, conditions):
         """Consulta las transacciones asociadas al plan"""
         where_clause = conditions

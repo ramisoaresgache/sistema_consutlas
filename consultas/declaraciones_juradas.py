@@ -130,7 +130,7 @@ class ConsultaDeclaracionesJuradas:
 
             # Mostrar botón de cancelar
             ui_components.mostrar_boton_cancelar(cancel_container, "declaraciones")
-            st.subheader("📋 Resultados - Consulta declaraciones juradas")
+            st.subheader("📋 Resultados - Consulta declaraciones juradas de Regimen Simplificado")
             # Ejecutar consulta principal
             def consulta_declaraciones():
                 return db_manager.consultar_declaraciones_juradas(conditions)
@@ -168,7 +168,7 @@ class ConsultaDeclaracionesJuradas:
 
             # Ejecutar consulta adicional
             st.subheader(
-                "📋 Resultados - Consulta Regimen simplificado de declaraciones juradas")
+                "📋 Resultados - Consulta declaraciones juradas de Regimen General")
 
             # Crear nuevos controles para la consulta adicional
             spinner_container_2, cancel_container_2, cancel_key_2 = ui_components.crear_controles_busqueda("declaraciones_adicional")
