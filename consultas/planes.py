@@ -26,7 +26,7 @@ class ConsultaPlanes:
             col1, col2 = st.columns(2)
             with col1:
                 plan_input = st.text_input(
-                    "Plan (OBLIGATORIO) 🔴:",
+                    "Plan (OBLIGATORIO solo podes buscar de a 1):",
                     placeholder="Ej: 122250",
                     help="⚠️ Este campo es obligatorio. Ingresá el número de plan a consultar."
                 )

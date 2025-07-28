@@ -130,7 +130,7 @@ class ConsultaDeclaracionesJuradas:
 
             # Mostrar botón de cancelar
             ui_components.mostrar_boton_cancelar(cancel_container, "declaraciones")
-            st.subheader("📋 Resultados - Consulta Cabecera de declaraciones juradas")
+            st.subheader("📋 Resultados - Consulta declaraciones juradas")
             # Ejecutar consulta principal
             def consulta_declaraciones():
                 return db_manager.consultar_declaraciones_juradas(conditions)

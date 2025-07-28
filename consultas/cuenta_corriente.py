@@ -75,14 +75,6 @@ class ConsultaCuentaCorriente:
                     placeholder="Ej: 10748765384,10748765789",
                     help="Ingresá los números de comprobante separados por coma"
                 )
-
-                # # campo para sistema
-                # sistema_input = st.text_input(
-                #     "Sistema (opcional):",
-                #     placeholder="Ej: 1 ",
-                #     help="Ingresá el código de sistema",
-                # )
-
             # Botón de búsqueda
             submitted_ctacte = st.form_submit_button("🔍 Buscar en Cta Cte", use_container_width=True)
 
@@ -95,7 +87,6 @@ class ConsultaCuentaCorriente:
                 transacciones_input,
                 tasa_input,
                 comprob_input,
-                # sistema_input,
             )
         else:
             # Solo mostrar resultados persistentes si NO se envió una nueva búsqueda
@@ -113,7 +104,6 @@ class ConsultaCuentaCorriente:
         transacciones_input,
         tasa_input,
         comprob_input,
-        # sistema_input,
     ):
         """Procesa la búsqueda de cuenta corriente"""
         try:
@@ -133,7 +123,6 @@ class ConsultaCuentaCorriente:
                 tasa_input,
                 comprob_input,
                 capital_input,
-                # sistema_input,
             ]
 
             if not ui_components.validar_campos_requeridos(campos_adicionales):
@@ -144,16 +133,6 @@ class ConsultaCuentaCorriente:
 
             # Construir condiciones WHERE dinámicamente
             conditions = []
-            # No necesitamos base_condition ya que usamos INNER JOIN en la consulta SQL
-
-            # # IMPORTANTE: Poner el filtro de sistema PRIMERO para optimizar la consulta
-            # if sistema_input.strip():
-            #     sistemas = [
-            #         x.strip() for x in sistema_input.split(",") if x.strip().isdigit()
-            #     ]
-            #     if sistemas:
-            #         sistemas_str = ",".join(sistemas)
-            #         conditions.append(f"t.c_sistema = {sistemas_str}")
 
             # Procesar cada campo
             if cuenta_input.strip():

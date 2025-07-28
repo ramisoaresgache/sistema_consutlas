@@ -11,9 +11,9 @@ load_dotenv()
 
 # Configuración de la página Streamlit
 PAGE_CONFIG = {
-    "page_title": "Sistema de Consultas",
-    "page_icon": "🔍",
-    "layout": "wide"
+    "page_title": "Sistema de la Municipalidad de Vicente López",
+    "page_icon": "🏛",
+    "layout": "wide",
 }
 
 # Configuración de conexión a la base de datos
@@ -32,9 +32,9 @@ DATABASE_CONFIG = {
 
 # Configuración de la interfaz
 UI_CONFIG = {
-    "header_title": "🔍 Sistema de Consultas",
+    "header_title": "🏛 Sistema de la Municipalidad de Vicente López",
     "welcome_message": "👋 <b>Hola {nombre}, que tengas un lindo día!</b>",
-    "session_indicator": "🔒 Sesión persistente activa - Tu sesión se mantendrá al refrescar la página"
+    "session_indicator": "🔒 Sesión persistente activa - Tu sesión se mantendrá al refrescar la página",
 }
 
 # Configuración de las pestañas
@@ -74,7 +74,7 @@ TABS_CONFIG = {
 # Mensajes del sistema
 MESSAGES = {
     "login": {
-        "title": "🏢 Sistema de Consultas - Login",
+        "title": "🏛 Sistema de Consultas - Login",
         "subtitle": "Ingresá tus credenciales",
         "legajo_help": "Tu número de legajo personal",
         "password_help": "Por ahora, usá tu mismo número de legajo",
@@ -83,6 +83,10 @@ MESSAGES = {
         "welcome": "✅ ¡Bienvenido/a {nombre}!",
         "credentials_error": "❌ Credenciales incorrectas. Verificá tu legajo y contraseña.",
         "unexpected_error": "❌ Error inesperado durante el login. Intentá nuevamente.",
+        # Ejemplo de cómo agregar una imagen local (usando Streamlit):
+        "logo_path": os.path.join(
+            os.path.dirname(__file__), "imagenes", "descarga.jpeg"
+        ),
     },
     "session": {
         "restored": "🔄 Sesión restaurada automáticamente",
@@ -92,7 +96,7 @@ MESSAGES = {
         "cancel_button": "🛑 Cancelar Búsqueda",
         "cancelled": "🛑 Búsqueda cancelada por el usuario",
         "no_results": "ℹ️ No se encontraron resultados para los criterios especificados.",
-        "results_found": "✅ Se encontraron {count} resultados (límite: 1000 filas):",
+        "results_found": "✅ Se encontraron {count} resultados:",
         "download_button": "📥 Descargar resultados como Excel",
         "limit_info": "ℹ️ Las consultas están limitadas a 1000 registros para optimizar el rendimiento.",
     },
@@ -136,19 +140,25 @@ SQL_QUERIES = {
     """,
     "declaraciones_juradas": """
         SELECT 
-          a.c_id_ddjj AS ID_ddjj, 
-          a.n_cuit AS cuit, 
-          a.c_cuenta AS cuenta, 
-          a.d_presentacion AS presentacion, 
-          a.f_presentacion AS fecha_de_alta, 
-          a.n_ano AS ano, 
-          a.n_cuota AS cuota,  
-          a.n_rub_act_prin AS rubro_principal, 
-          a.c_baja AS baja, 
-          a.id_simplificado AS id_simplificado
-        FROM ddjj_sh_cab a
+            a.c_id_ddjj AS ID_ddjj, 
+            a.n_cuit AS cuit, 
+            a.c_cuenta AS cuenta, 
+            a.d_presentacion AS presentacion, 
+            a.f_presentacion AS fecha_de_alta, 
+            a.n_ano AS ano, 
+            a.n_cuota AS cuota,  
+            a.n_rub_act_prin AS rubro_principal,
+            b.i_imponible as imponible,
+        CASE 
+            WHEN a.c_baja = 1 THEN 'SI' 
+            WHEN a.c_baja = 0 THEN 'NO' 
+            ELSE 'SIN DATOS'
+        END AS baja,
+            a.id_simplificado AS id_simplificado    
+        FROM ddjj_sh_cab a 
+        LEFT JOIN regimen_simplificado_padrones b ON a.n_cuit = b.n_cuit AND a.c_cuenta = b.c_cuenta
         WHERE {where_clause}
-    """,
+            """,
     "declaraciones_juradas_adicional": """
         SELECT 
           a.c_id_ddjj AS ID_ddjj, 
@@ -161,13 +171,16 @@ SQL_QUERIES = {
           a.n_cuota AS cuota, 
           b.c_tasa_1 AS tasa, 
           a.n_rub_act_prin AS rubro_principal, 
-          a.c_baja AS baja, 
+        CASE 
+            WHEN a.c_baja = 1 THEN 'SI' 
+            WHEN a.c_baja = 0 THEN 'NO' 
+            ELSE 'SIN DATOS'
+        END AS baja,
           a.id_simplificado AS id_simplificado
         FROM ddjj_sh_cab a,regimen_simplificado_cuentas b, regimen_simplificado_cab c
         WHERE {where_clause}
         AND a.id_simplificado = b.id_simplificado
         AND a.id_simplificado = c.id_simplificado
-
     """,
     "planes": """
         SELECT 
@@ -182,15 +195,15 @@ SQL_QUERIES = {
           b.i_recargo as recargos_cuotas,
           b.i_interes_fin as intereses_cuota,
           b.i_multa as multa,
+          (b.i_capital + b.i_recargo + b.i_interes_fin + b.i_multa) AS total,
           b.f_pago as fecha_pago_cuota
         FROM ppc_cab a, cuotas_ppc b
         WHERE a.n_plan = b.n_plan
         AND {where_clause}
         ORDER BY a.n_plan, b.n_cuota_plan
-
     """,
     "planes_transacciones": """
-        SELECT 
+        SELECT unique 
           t.c_sistema as sistema,
           t.n_transac as transaccion,
           t.c_cuenta as cuenta,
@@ -206,6 +219,7 @@ SQL_QUERIES = {
           c.i_capital as importe, 
           c.i_recargo as recargo,
           c.i_multa as multa, 
+          (b.i_capital + b.i_recargo + b.i_interes_fin + b.i_multa) AS total,
           c.c_movimiento as movimiento  
         FROM ppc_cab a, cuotas_ppc b, transacciones t, cta_cte c, ppc_transac d
         WHERE t.n_transac = c.n_transac 
@@ -216,7 +230,6 @@ SQL_QUERIES = {
         AND a.n_plan = b.n_plan
         AND {where_clause}
         ORDER BY t.c_sistema, t.n_transac, t.n_ano, t.n_cuota, c.n_orden
-    
     """,
     "usuario_login": "SELECT n_legajo, d_nombre FROM usuarios WHERE n_legajo = ? AND n_legajo = ?",
     "usuario_nombre": "SELECT d_nombre FROM usuarios WHERE n_legajo = ?",
