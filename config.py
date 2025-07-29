@@ -60,12 +60,12 @@ TABS_CONFIG = {
         "description": "Creá tus propios reportes personalizados sin necesidad de conocimiento técnico.",
     },
     "declaraciones_juradas": {
-        "name": "📄 Consulta de Declaraciones Juradas",
+        "name": "👨🏼‍⚖️ Consulta de Declaraciones Juradas",
         "header": "Consulta de Declaraciones Juradas",
         "description": "Ingresá los criterios de búsqueda para las declaraciones juradas.",
     },
     "planes": {
-        "name": "📋 Consulta de Planes",
+        "name": "📒 Consulta de Planes",
         "header": "Consulta de Planes de Pago",
         "description": "Ingresá el número de plan para consultar la información detallada.",
     },
@@ -110,12 +110,14 @@ MESSAGES = {
 # Configuración de consultas SQL
 SQL_QUERIES = {
     "recibos": """
-        SELECT c_sistema as sistema, n_comprob as comprobante, c_cuenta as cuenta, 
+        SELECT d_sub_cod as sistema, n_comprob as comprobante, c_cuenta as cuenta, 
                c_tasa as tasa, n_ano as ano, n_cuota as cuota, 
                f_prim_vto as primer_vencimiento, i_deuda as importe, 
                i_rec_prim_vto as recargos, i_multa as multa 
-        FROM recibos
+        FROM recibos, codificaciones 
         WHERE n_comprob IN ({placeholders})
+        and codificaciones.c_codificacion = 11
+        and codificaciones.c_sub_cod = recibos.c_sistema
     """,
     "lotes_bancarios": """
         SELECT n_archivo as numero_lote, n_comprob as comprobante, 
@@ -125,7 +127,7 @@ SQL_QUERIES = {
         WHERE {where_clause}
     """,
     "cuenta_corriente": """
-        SELECT t.c_sistema as sistema, t.n_transac as transaccion, 
+        SELECT d.d_sub_cod as sistema, t.n_transac as transaccion, 
                t.c_cuenta as cuenta, t.c_tasa as tasa, t.n_ano as ano, 
                t.n_cuota as cuota, c.c_estado_deuda as estado_deuda, 
                t.c_actual as estado_actual, c.n_comprob as comprobante, 
@@ -133,9 +135,11 @@ SQL_QUERIES = {
                c.c_lugar_pago as lugar_pago, c.i_capital as importe, 
                c.i_recargo as recargo, c.i_multa as multa, 
                c.c_movimiento as movimiento  
-        FROM transacciones t 
+        FROM transacciones t
         INNER JOIN cta_cte c ON t.n_transac = c.n_transac
+        JOIN codificaciones d ON t.c_sistema = d.c_sub_cod
         WHERE {where_clause}
+        and d.c_codificacion = 11
         ORDER BY t.c_sistema, t.n_transac,t.n_ano, t.n_cuota, c.n_orden
     """,
     "declaraciones_juradas": """
@@ -156,31 +160,32 @@ SQL_QUERIES = {
             ELSE 'SIN DATOS'
         END AS baja
         FROM ddjj_sh_cab a, rubro_actividad_rel c
-        where a.n_rub_act_prin = c.n_rub_act
+        where a.n_rub_act_prin = c.c_rubro
         and {where_clause}
         order by a.n_ano desc
             """,
     "declaraciones_juradas_adicional": """
-SELECT 
-          a.c_id_ddjj AS ID_ddjj, 
+SELECT unique
+          a.c_id_ddjj,
           a.n_cuit AS cuit, 
           a.c_cuenta AS cuenta, 
           a.d_presentacion AS presentacion, 
           a.f_presentacion AS fecha_de_alta, 
           a.n_ano AS ano, 
           a.n_cuota AS cuota, 
-          b.c_tasa_1 AS tasa, 
+          d.d_tasa AS tasa, 
           c.d_rub_act as actividad,
         CASE 
             WHEN a.c_baja = 1 THEN 'SI' 
             WHEN a.c_baja = 0 THEN 'NO' 
             ELSE 'SIN DATOS'
-        END AS baja,
-          a.id_simplificado AS id_simplificado
-        FROM ddjj_sh_cab a, regimen_simplificado_cuentas b, rubro_actividad_rel c
+        END AS baja
+        FROM ddjj_sh_cab a, ddjj_sh_det b, rubro_actividad_rel c, tasas d
         WHERE {where_clause}
-        AND a.id_simplificado = b.id_simplificado
+        AND a.c_id_ddjj = b.c_id_ddjj
         AND a.n_rub_act_prin = c.c_rubro
+        AND b.c_tasa = d.c_tasa
+        order by a.n_ano desc
         """,
     "planes": """
         SELECT 
@@ -213,7 +218,7 @@ SELECT
     """,
     "planes_transacciones": """
    SELECT 
-       b.c_sistema as sistema,
+       c.d_sub_cod as sistema,
        a.n_plan as plan, 
        a.n_cuota_plan as cuota_plan,
        b.c_cuenta as cuenta,
@@ -224,8 +229,10 @@ SELECT
        a.i_capital as capital,
        a.i_recargo as recargo,
        a.i_multa as multa
-       FROM per_cuotas_ppc a, transacciones b
+       FROM per_cuotas_ppc a, transacciones b, codificaciones c
        WHERE a.n_transac = b.n_transac 
+       and c.c_codificacion = 11
+       and b.c_sistema = c.c_sub_cod
        AND {where_clause}
     """,
     "usuario_login": "SELECT n_legajo, d_nombre FROM usuarios WHERE n_legajo = ? AND n_legajo = ?",
