@@ -167,7 +167,7 @@ class ConsultaDeclaracionesJuradas:
                 ui_components.mostrar_resultados(df, "declaraciones_juradas_consulta")
 
             # Ejecutar consulta adicional
-            st.subheader("📋 Resultados - Detalle de declaraciones juradas ")
+            st.subheader("📋 Resultados - Detalle de declaraciones juradas por tasas")
 
             # Crear nuevos controles para la consulta adicional
             spinner_container_2, cancel_container_2, cancel_key_2 = ui_components.crear_controles_busqueda("declaraciones_adicional")

@@ -166,7 +166,6 @@ SQL_QUERIES = {
             """,
     "declaraciones_juradas_adicional": """
 SELECT unique
-          a.c_id_ddjj,
           a.n_cuit AS cuit, 
           a.c_cuenta AS cuenta, 
           a.d_presentacion AS presentacion, 
@@ -174,6 +173,8 @@ SELECT unique
           a.n_ano AS ano, 
           a.n_cuota AS cuota, 
           d.d_tasa AS tasa, 
+          b.n_personas AS cantidad_personas,
+          b.i_imponible AS imponible_tasa,
           c.d_rub_act as actividad,
         CASE 
             WHEN a.c_baja = 1 THEN 'SI' 
