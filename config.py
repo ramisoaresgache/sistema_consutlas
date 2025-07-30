@@ -132,12 +132,13 @@ SQL_QUERIES = {
                t.n_cuota as cuota, c.c_estado_deuda as estado_deuda, 
                t.c_actual as estado_actual, c.n_comprob as comprobante, 
                c.n_orden as orden, c.f_pago as pago, 
-               c.c_lugar_pago as lugar_pago, c.i_capital as importe, 
+               e.d_lugar_pago as lugar_pago, c.i_capital as importe, 
                c.i_recargo as recargo, c.i_multa as multa, 
                c.c_movimiento as movimiento  
         FROM transacciones t
         INNER JOIN cta_cte c ON t.n_transac = c.n_transac
         JOIN codificaciones d ON t.c_sistema = d.c_sub_cod
+        JOIN estadisticas_lugares_de_pago e ON c.c_lugar_pago = e.c_lugar_pago
         WHERE {where_clause}
         AND d.c_codificacion = 11
         ORDER BY t.c_sistema, t.n_transac,t.n_ano, t.n_cuota, c.n_orden
@@ -177,8 +178,8 @@ SELECT unique
           b.n_personas AS cantidad_personas,
           b.i_imponible AS imponible_tasa,
         CASE 
-            WHEN a.c_baja = 1 THEN 'SI' 
-            WHEN a.c_baja = 0 THEN 'NO' 
+            WHEN a.c_baja = 1 THEN 'BAJA' 
+            WHEN a.c_baja = 0 THEN 'ACTIVA' 
             ELSE 'SIN DATOS'
         END AS baja
         FROM ddjj_sh_cab a, ddjj_sh_det b, rubro_actividad_rel c, tasas d
