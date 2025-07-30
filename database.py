@@ -122,6 +122,14 @@ class DatabaseManager:
         )
         return self.execute_query(query)
 
+    def consultar_declaraciones_juradas_tercera(self, conditions):
+        """Consulta declaraciones juradas tercera consulta con condiciones dinámicas"""
+        where_clause = " AND ".join(conditions)
+        query = SQL_QUERIES["declaraciones_juradas_detalle_simplificado"].format(
+            where_clause=where_clause
+        )
+        return self.execute_query(query)
+
     def consultar_planes(self, conditions):
         """Consulta los detalles del plan y sus cuotas"""
         where_clause = conditions

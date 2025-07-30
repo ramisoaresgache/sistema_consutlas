@@ -116,8 +116,8 @@ SQL_QUERIES = {
                i_rec_prim_vto as recargos, i_multa as multa 
         FROM recibos, codificaciones 
         WHERE n_comprob IN ({placeholders})
-        and codificaciones.c_codificacion = 11
-        and codificaciones.c_sub_cod = recibos.c_sistema
+        AND codificaciones.c_codificacion = 11
+        AND codificaciones.c_sub_cod = recibos.c_sistema
     """,
     "lotes_bancarios": """
         SELECT n_archivo as numero_lote, n_comprob as comprobante, 
@@ -139,7 +139,7 @@ SQL_QUERIES = {
         INNER JOIN cta_cte c ON t.n_transac = c.n_transac
         JOIN codificaciones d ON t.c_sistema = d.c_sub_cod
         WHERE {where_clause}
-        and d.c_codificacion = 11
+        AND d.c_codificacion = 11
         ORDER BY t.c_sistema, t.n_transac,t.n_ano, t.n_cuota, c.n_orden
     """,
     "declaraciones_juradas": """
@@ -160,9 +160,9 @@ SQL_QUERIES = {
             ELSE 'SIN DATOS'
         END AS baja
         FROM ddjj_sh_cab a, rubro_actividad_rel c
-        where a.n_rub_act_prin = c.c_rubro
-        and {where_clause}
-        order by a.n_ano desc
+        WHERE a.n_rub_act_prin = c.c_rubro
+        AND {where_clause}
+        ORDER BY a.n_ano DESC
             """,
     "declaraciones_juradas_adicional": """
 SELECT unique
@@ -173,9 +173,9 @@ SELECT unique
           a.n_ano AS ano, 
           a.n_cuota AS cuota, 
           d.d_tasa AS tasa, 
+          c.d_rub_act as actividad,
           b.n_personas AS cantidad_personas,
           b.i_imponible AS imponible_tasa,
-          c.d_rub_act as actividad,
         CASE 
             WHEN a.c_baja = 1 THEN 'SI' 
             WHEN a.c_baja = 0 THEN 'NO' 
@@ -186,8 +186,80 @@ SELECT unique
         AND a.c_id_ddjj = b.c_id_ddjj
         AND a.n_rub_act_prin = c.c_rubro
         AND b.c_tasa = d.c_tasa
-        order by a.n_ano desc
+        ORDER BY a.n_ano DESC, a.n_cuota DESC
         """,
+    "declaraciones_juradas_detalle_simplificado": """
+        SELECT unique
+          a.n_ano AS ano, 
+          a.n_cuota AS cuota, 
+          c.d_rub_act as actividad,
+          d.d_tasa AS tasa, 
+          e.i_imponible AS imponible_tasa,
+        CASE
+            when e.c_pyp1 > 0 then "SI"
+            when e.c_pyp1 = 0 then "NO"
+        END AS cartel1,
+        CASE
+            when e.c_pyp2 > 0 then "SI"
+            when e.c_pyp2 = 0 then "NO"
+        END AS cartel2,
+        CASE
+            when e.c_pyp3 > 0 then "SI"
+            when e.c_pyp3 = 0 then "NO"
+        END AS cartel3,
+        CASE
+            when e.c_pyp4 > 0 then "SI"
+            when e.c_pyp4 = 0 then "NO"
+        END AS cartel4,
+        CASE
+            when e.c_pyp5 > 0 then "SI"
+            when e.c_pyp5 = 0 then "NO"
+        END AS cartel5,
+        CASE
+            when e.c_pyp6 > 0 then "SI"
+            when e.c_pyp6 = 0 then "NO"
+        END AS cartel6,
+        CASE
+            when e.c_pyp7 > 0 then "SI"
+            when e.c_pyp7 = 0 then "NO"
+        END AS cartel7,
+        CASE
+            when e.c_pyp8 > 0 then "SI"
+            when e.c_pyp8 = 0 then "NO"
+        END AS cartel8,
+        CASE
+            when e.c_pyp9 > 0 then "SI"
+            when e.c_pyp9 = 0 then "NO"
+        END AS cartel9,
+        CASE
+            when e.c_pyp10 > 0 then "SI"
+            when e.c_pyp10 = 0 then "NO"
+        END AS cartel10,
+        CASE
+            when e.c_oep1 > 0 then "SI"
+            when e.c_oep1 = 0 then "NO"
+        END AS espacios_publicos1,
+        CASE
+            when e.c_oep2 > 0 then "SI"
+            when e.c_oep2 = 0 then "NO"
+        END AS espacios_publicos2,
+        CASE
+            when e.c_sv1 > 0 then "SI"
+            when e.c_sv1 = 0 then "NO"
+        END AS seguridad_vial1,
+        CASE
+            when e.c_sv2 > 0 then "SI"
+            when e.c_sv2 = 0 then "NO"
+        END AS seguridad_vial2
+        FROM ddjj_sh_cab a, ddjj_sh_det b, rubro_actividad_rel c, tasas d, tmp_graba_datos_cab e
+        WHERE a.c_id_ddjj = b.c_id_ddjj
+        AND a.c_cuenta = e.c_cuenta 
+        AND a.n_cuit = e.n_cuit 
+        AND a.n_rub_act_prin = c.c_rubro
+        AND b.c_tasa = d.c_tasa
+        AND {where_clause}
+        ORDER BY a.n_ano DESC
+    """,
     "planes": """
         SELECT 
             a.n_plan AS plan,
@@ -199,7 +271,7 @@ SELECT unique
         FROM ppc_cab a
         JOIN per_cuotas_ppc b ON a.n_plan = b.n_plan join codificaciones c on  a.c_estado = c.c_sub_cod
         WHERE {where_clause}
-        and c.c_codificacion = 36
+        AND c.c_codificacion = 36
         GROUP BY 1,2,3,4,5
     """,
     "planes_consulta_cuotas": """
@@ -232,8 +304,8 @@ SELECT unique
        a.i_multa as multa
        FROM per_cuotas_ppc a, transacciones b, codificaciones c
        WHERE a.n_transac = b.n_transac 
-       and c.c_codificacion = 11
-       and b.c_sistema = c.c_sub_cod
+       AND c.c_codificacion = 11
+       AND b.c_sistema = c.c_sub_cod
        AND {where_clause}
     """,
     "usuario_login": "SELECT n_legajo, d_nombre FROM usuarios WHERE n_legajo = ? AND n_legajo = ?",
