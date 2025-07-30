@@ -195,7 +195,7 @@ SELECT unique
           a.n_cuota AS cuota, 
           c.d_rub_act as actividad,
           d.d_tasa AS tasa, 
-          e.i_imponible AS imponible_tasa,
+          b.i_imponible AS imponible_tasa,
         CASE
             when e.c_pyp1 > 0 then "SI"
             when e.c_pyp1 = 0 then "NO"
@@ -252,8 +252,10 @@ SELECT unique
             when e.c_sv2 > 0 then "SI"
             when e.c_sv2 = 0 then "NO"
         END AS seguridad_vial2
-        FROM ddjj_sh_cab a, ddjj_sh_det b, rubro_actividad_rel c, tasas d, tmp_graba_datos_cab e
+        FROM ddjj_sh_cab a, ddjj_sh_det b, rubro_actividad_rel c, tasas d, tmp_graba_datos_cab e--, transacciones f
         WHERE a.c_id_ddjj = b.c_id_ddjj
+        --and b.n_transac = f.n_transac
+        --and b.i_imponible = e.i_imponible
         AND a.c_cuenta = e.c_cuenta 
         AND a.n_cuit = e.n_cuit 
         AND a.n_rub_act_prin = c.c_rubro
