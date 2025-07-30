@@ -64,6 +64,9 @@ class ConsultaDeclaracionesJuradas:
             ui_components.mostrar_resultados_persistentes(
                 "declaraciones_juradas_adicional"
             )
+            ui_components.mostrar_resultados_persistentes(
+                "declaraciones_juradas_tercera"
+            )
 
     def procesar_busqueda(self, cuit_input, cuenta_input, id_simplificado_input):
         """Procesa la búsqueda de declaraciones juradas"""
@@ -210,6 +213,52 @@ class ConsultaDeclaracionesJuradas:
                     )
                 ui_components.mostrar_resultados(
                     df_adicional, "declaraciones_juradas_adicional"
+                )
+
+            # Ejecutar tercera consulta
+            st.subheader("📋 Resultados - Detalle de declaraciones juradas carteleria")
+
+            # Crear nuevos controles para la tercera consulta
+            spinner_container_3, cancel_container_3, cancel_key_3 = ui_components.crear_controles_busqueda("declaraciones_tercera")
+
+            ui_components.mostrar_boton_cancelar(cancel_container_3, "declaraciones_tercera")
+
+            def consulta_declaraciones_tercera():
+                return db_manager.consultar_declaraciones_juradas_tercera(conditions)
+
+            df_tercera = ui_components.ejecutar_con_spinner(
+                spinner_container_3,
+                "🔍 Consultando detalle simplificado... Presioná 'Cancelar Búsqueda' si querés detener.",
+                consulta_declaraciones_tercera
+            )
+
+            # Limpiar controles tercera consulta
+            ui_components.limpiar_controles(spinner_container_3, cancel_container_3, cancel_key_3)
+
+            # Validación robusta de resultados para tercera consulta
+            if df_tercera is None or df_tercera.empty:
+                st.info("ℹ️ No se encontraron resultados en la consulta de detalle simplificado.")
+            else:
+                columnas_metricas_tercera = {
+                    "total": "Total registros",
+                    "cuit": "CUITs únicos",
+                    "cuenta": "Cuentas únicas"
+                }
+                columnas_validas_tercera = [
+                    col
+                    for col in columnas_metricas_tercera
+                    if col in df_tercera.columns or col == "total"
+                ]
+                if columnas_validas_tercera:
+                    ui_components.mostrar_estadisticas_basicas(
+                        df_tercera,
+                        {
+                            k: columnas_metricas_tercera[k]
+                            for k in columnas_validas_tercera
+                        },
+                    )
+                ui_components.mostrar_resultados(
+                    df_tercera, "declaraciones_juradas_tercera"
                 )
         except Exception as e:
             st.error(self.messages["errors"]["database_error"].format(error=e))
