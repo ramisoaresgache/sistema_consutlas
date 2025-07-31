@@ -72,64 +72,257 @@ def main():
     with tab_reportes:
         st.header("📈 Módulos de Reportes")
 
-        # Mensaje temporal mientras se desarrollan los reportes
-        st.info("🚧 **Próximamente tendrás información aquí**")
-
-        st.markdown(
-            """
-        ### 📊 Reportes en Desarrollo
-        
-        En esta sección encontrarás:
-        
-        - 📈 **Reportes estadísticos** de recaudación
-        - 📊 **Dashboards interactivos** con métricas
-        - 📅 **Reportes programados** automáticos
-        - 📋 **Análisis de tendencias** temporales
-        - 💰 **Resúmenes ejecutivos** de gestión
-        
-        ---
-        
-        💡 **Sugerencias de reportes**: Si tenés ideas para reportes específicos que te gustaría ver, 
-        contactá al equipo de desarrollo.
-        """
+        # Sub-pestañas para diferentes tipos de reportes
+        subtab_clickup, subtab_estadisticos, subtab_dashboards = st.tabs(
+            ["🎫 Tickets ClickUp", "📊 Reportes Estadísticos", "📈 Dashboards"]
         )
 
-        # Placeholder para futuras funcionalidades
-        col1, col2, col3 = st.columns(3)
+        # SUB-PESTAÑA 1: TICKETS CLICKUP
+        with subtab_clickup:
+            st.subheader("🎫 Gestión de Tickets ClickUp")
+            st.write("Visualización y análisis de tickets del sistema ClickUp")
 
-        with col1:
+            # Botón para cargar datos
+            if st.button("🔄 Cargar Datos de ClickUp", use_container_width=True):
+                from reportes.clickup_manager import clickup_manager
+
+                # Obtener datos
+                df_clickup = clickup_manager.obtener_todas_las_tareas()
+
+                if not df_clickup.empty:
+                    # Guardar en session_state para persistencia
+                    st.session_state.clickup_data = df_clickup
+                    st.success(f"✅ Se cargaron {len(df_clickup)} tareas correctamente")
+                else:
+                    st.error("❌ No se pudieron cargar los datos de ClickUp")
+
+            # Mostrar datos si existen en session_state
+            if (
+                "clickup_data" in st.session_state
+                and not st.session_state.clickup_data.empty
+            ):
+                df = st.session_state.clickup_data
+
+                # Mostrar métricas básicas
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    st.metric("📊 Total Tareas", len(df))
+
+                with col2:
+                    espacios_unicos = df["Espacio"].nunique()
+                    st.metric("🗂️ Espacios", espacios_unicos)
+
+                with col3:
+                    listas_unicas = df["Lista"].nunique()
+                    st.metric("📋 Listas", listas_unicas)
+
+                with col4:
+                    asignados_unicos = (
+                        df["Asignados"]
+                        .apply(lambda x: len(x.split(", ")) if x else 0)
+                        .sum()
+                    )
+                    st.metric("👥 Asignaciones", asignados_unicos)
+
+                st.divider()
+
+                # Filtros
+                st.subheader("🔍 Filtros")
+
+                # Agregar filtro de búsqueda por nombre como primera fila
+                col_search = st.columns(1)[0]
+                with col_search:
+                    search_term = st.text_input(
+                        "🔍 Buscar por nombre de tarea",
+                        placeholder="Escribe parte del nombre de la tarea...",
+                        help="Busca tareas que contengan el texto especificado en el nombre",
+                    )
+
+                # Filtros existentes en segunda fila
+                col_filter1, col_filter2, col_filter3, col_filter4, col_filter5 = (
+                    st.columns(5)
+                )
+
+                with col_filter1:
+                    espacios = ["Todos"] + sorted(df["Espacio"].unique().tolist())
+                    espacio_selected = st.selectbox("Espacio", espacios)
+
+                with col_filter2:
+                    estados = ["Todos"] + sorted(df["Estado"].unique().tolist())
+                    estado_selected = st.selectbox("Estado", estados)
+
+                with col_filter3:
+                    prioridades = ["Todos"] + sorted(
+                        [p for p in df["Prioridad"].unique() if p]
+                    )
+                    prioridad_selected = st.selectbox("Prioridad", prioridades)
+
+                with col_filter4:
+                    # Obtener fechas únicas sin duplicados y ordenar descendente
+                    fechas_creacion_unicas = (
+                        df["Fecha Creación"].dropna().dt.date.unique()
+                    )
+                    fechas_creacion = ["Todos"] + sorted(
+                        [str(f) for f in fechas_creacion_unicas], reverse=True
+                    )
+                    fecha_selected = st.selectbox("Fecha Creación", fechas_creacion)
+
+                with col_filter5:
+                    # Obtener fechas únicas sin duplicados y ordenar descendente
+                    fechas_cierre_unicas = df["Fecha Cierre"].dropna().dt.date.unique()
+                    fechas_cierre = ["Todos"] + sorted(
+                        [str(f) for f in fechas_cierre_unicas], reverse=True
+                    )
+                    fecha_cierre_selected = st.selectbox("Fecha Cierre", fechas_cierre)
+
+                # Aplicar filtros
+                df_filtered = df.copy()
+
+                # Aplicar filtro de búsqueda por nombre (primero)
+                if search_term:
+                    # Mejorar el filtro de búsqueda
+                    df_filtered = df_filtered[
+                        df_filtered["Nombre"]
+                        .astype(str)
+                        .str.lower()
+                        .str.contains(
+                            search_term.lower().strip(),
+                            case=False,
+                            na=False,
+                            regex=False,
+                        )
+                    ]
+
+                if espacio_selected != "Todos":
+                    df_filtered = df_filtered[
+                        df_filtered["Espacio"] == espacio_selected
+                    ]
+
+                if estado_selected != "Todos":
+                    df_filtered = df_filtered[df_filtered["Estado"] == estado_selected]
+
+                if prioridad_selected != "Todos":
+                    df_filtered = df_filtered[
+                        df_filtered["Prioridad"] == prioridad_selected
+                    ]
+
+                if fecha_selected != "Todos":
+                    # Filtrar por fecha de creación
+                    df_filtered = df_filtered[
+                        df_filtered["Fecha Creación"].dt.date.astype(str)
+                        == fecha_selected
+                    ]
+
+                if fecha_cierre_selected != "Todos":
+                    # Filtrar por fecha de cierre
+                    df_filtered = df_filtered[
+                        df_filtered["Fecha Cierre"].dt.date.astype(str)
+                        == fecha_cierre_selected
+                    ]
+
+                st.divider()
+
+                # Mostrar tabla filtrada
+                st.subheader(f"✍🏼 Tareas ({len(df_filtered)} registros)")
+
+                # Configurar columnas para mostrar
+                columnas_mostrar = [
+                    "ID",
+                    "Nombre",
+                    "Estado",
+                    "Prioridad",
+                    "Espacio",
+                    "Lista",
+                    "Asignados",
+                    "Fecha Creación",
+                    "Fecha Vencimiento",
+                    "Fecha Cierre",
+                    "Etiquetas",
+                ]
+
+                # Asegurar que las columnas existen
+                columnas_disponibles = [
+                    col for col in columnas_mostrar if col in df_filtered.columns
+                ]
+
+                if columnas_disponibles:
+                    # Mostrar tabla con scroll horizontal
+                    st.dataframe(
+                        df_filtered[columnas_disponibles],
+                        use_container_width=True,
+                        height=400,
+                    )
+
+                    # Botón de descarga
+                    if st.button("📥 Descargar datos filtrados como Excel"):
+                        from io import BytesIO
+                        import pandas as pd
+
+                        buffer = BytesIO()
+                        df_filtered.to_excel(buffer, index=False, engine="openpyxl")
+                        buffer.seek(0)
+
+                        st.download_button(
+                            label="📥 Descargar Excel",
+                            data=buffer.getvalue(),
+                            file_name="tareas_clickup_filtradas.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        )
+
+                    # Agregar gráficos interactivos
+                    st.divider()
+
+                    # Importar y mostrar gráficos
+                    try:
+                        from reportes.clickup_charts import clickup_charts
+
+                        clickup_charts.mostrar_todos_los_graficos(df_filtered)
+                    except ImportError:
+                        st.error(
+                            "❌ No se pudo cargar el módulo de gráficos. Verificá que Plotly esté instalado."
+                        )
+                    except Exception as e:
+                        st.error(f"❌ Error mostrando gráficos: {e}")
+
+                else:
+                    st.error("❌ No se encontraron columnas válidas para mostrar")
+            else:
+                st.info("ℹ️ Hacé clic en 'Cargar Datos de ClickUp' para comenzar")
+
+        # SUB-PESTAÑA 2: REPORTES ESTADÍSTICOS
+        with subtab_estadisticos:
+            st.subheader("📊 Reportes Estadísticos")
+            st.info("🚧 **Próximamente reportes estadísticos de recaudación**")
+
             st.markdown(
                 """
-            #### 📊 Reportes Estadísticos
-            *Próximamente*
+            ### 📊 Reportes en Desarrollo
             
-            - Resúmenes por período
-            - Comparativas anuales
-            - Análisis de recaudación
+            En esta sección encontrarás:
+            
+            - 📈 **Reportes estadísticos** de recaudación
+            - 📅 **Reportes programados** automáticos
+            - 📋 **Análisis de tendencias** temporales
+            - 💰 **Resúmenes ejecutivos** de gestión
             """
             )
 
-        with col2:
-            st.markdown(
-                """
-            #### 📈 Dashboards
-            *Próximamente*
-            
-            - Métricas en tiempo real
-            - Gráficos interactivos
-            - KPIs principales
-            """
-            )
+        # SUB-PESTAÑA 3: DASHBOARDS
+        with subtab_dashboards:
+            st.subheader("📈 Dashboards Interactivos")
+            st.info("🚧 **Próximamente dashboards interactivos**")
 
-        with col3:
             st.markdown(
                 """
-            #### 📅 Programados
-            *Próximamente*
+            ### 📈 Dashboards en Desarrollo
             
-            - Reportes automáticos
-            - Envío por email
-            - Alertas personalizadas
+            En esta sección encontrarás:
+            
+            - 📊 **Dashboards interactivos** con métricas
+            - 📈 **Gráficos en tiempo real**
+            - 🎯 **KPIs principales**
+            - 📱 **Visualizaciones responsivas**
             """
             )
 

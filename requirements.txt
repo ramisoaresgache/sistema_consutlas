@@ -10,13 +10,18 @@ pandas>=2.0.0
 # Conexión a base de datos
 pyodbc>=4.0.34
 
+# API requests
+requests>=2.31.0
+
 # Exportación a Excel
 openpyxl>=3.1.0
 
 # Variables de entorno
 python-dotenv>=1.0.0
 
+# Gráficos interactivos
+plotly>=5.15.0
+
 # Utilidades adicionales (opcionales)
 # streamlit-authenticator>=0.2.3  # Para autenticación avanzada si se necesita
-# plotly>=5.15.0                  # Para gráficos si se agregan métricas visuales
 # sqlalchemy>=2.0.0              # Para ORM si se migra de consultas directas
