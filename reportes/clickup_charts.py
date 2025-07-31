@@ -17,7 +17,50 @@ class ClickUpCharts:
             '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
         ]
     
-    def grafico_torta_espacios(self, df):
+    def _generar_titulo_filtrado(self, titulo_base, espacios_filtrados=None, estados_filtrados=None, prioridades_filtradas=None, fecha_creacion_rango=None, fecha_cierre_rango=None):
+        """Genera un título dinámico basado en los filtros aplicados"""
+        filtros_activos = []
+        
+        if espacios_filtrados:
+            if len(espacios_filtrados) == 1:
+                filtros_activos.append(f"Espacio: {espacios_filtrados[0]}")
+            elif len(espacios_filtrados) <= 3:
+                filtros_activos.append(f"Espacios: {', '.join(espacios_filtrados)}")
+            else:
+                filtros_activos.append(f"Espacios: {len(espacios_filtrados)} seleccionados")
+        
+        if estados_filtrados:
+            if len(estados_filtrados) == 1:
+                filtros_activos.append(f"Estado: {estados_filtrados[0]}")
+            elif len(estados_filtrados) <= 3:
+                filtros_activos.append(f"Estados: {', '.join(estados_filtrados)}")
+            else:
+                filtros_activos.append(f"Estados: {len(estados_filtrados)} seleccionados")
+        
+        if prioridades_filtradas:
+            if len(prioridades_filtradas) == 1:
+                filtros_activos.append(f"Prioridad: {prioridades_filtradas[0]}")
+            elif len(prioridades_filtradas) <= 3:
+                filtros_activos.append(f"Prioridades: {', '.join(prioridades_filtradas)}")
+            else:
+                filtros_activos.append(f"Prioridades: {len(prioridades_filtradas)} seleccionadas")
+        
+        if fecha_creacion_rango:
+            desde, hasta = fecha_creacion_rango
+            filtros_activos.append(f"Creación: {desde} - {hasta}")
+        
+        if fecha_cierre_rango:
+            desde, hasta = fecha_cierre_rango
+            filtros_activos.append(f"Cierre: {desde} - {hasta}")
+        
+        titulo = titulo_base
+        if filtros_activos:
+            filtros_texto = " | ".join(filtros_activos)
+            titulo += f"<br><sub>{filtros_texto}</sub>"
+        
+        return titulo
+    
+    def grafico_torta_espacios(self, df, espacios_filtrados=None, estados_filtrados=None, prioridades_filtradas=None, fecha_creacion_rango=None, fecha_cierre_rango=None):
         """Gráfico de torta: distribución de tareas por espacio"""
         if df.empty:
             st.warning("No hay datos para mostrar el gráfico de espacios")
@@ -26,10 +69,16 @@ class ClickUpCharts:
         # Contar tareas por espacio
         espacio_counts = df['Espacio'].value_counts()
         
+        # Generar título dinámico
+        titulo = self._generar_titulo_filtrado(
+            "📊 Distribución de Tareas por Espacio",
+            espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango
+        )
+        
         fig = px.pie(
             values=espacio_counts.values,
             names=espacio_counts.index,
-            title="📊 Distribución de Tareas por Espacio",
+            title=titulo,
             color_discrete_sequence=self.color_palette
         )
         
@@ -50,7 +99,7 @@ class ClickUpCharts:
         
         return fig
     
-    def grafico_lineas_fechas(self, df):
+    def grafico_lineas_fechas(self, df, espacios_filtrados=None, estados_filtrados=None, prioridades_filtradas=None, fecha_creacion_rango=None, fecha_cierre_rango=None):
         """Gráfico de líneas: tareas creadas por fecha"""
         if df.empty:
             st.warning("No hay datos para mostrar el gráfico de fechas")
@@ -68,11 +117,17 @@ class ClickUpCharts:
         fechas_counts = df_fechas.groupby('Fecha').size().reset_index(name='Cantidad')
         fechas_counts = fechas_counts.sort_values('Fecha')
         
+        # Generar título dinámico
+        titulo = self._generar_titulo_filtrado(
+            "📈 Tareas Creadas por Fecha",
+            espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango
+        )
+        
         fig = px.line(
             fechas_counts,
             x='Fecha',
             y='Cantidad',
-            title="📈 Tareas Creadas por Fecha",
+            title=titulo,
             markers=True
         )
         
@@ -94,7 +149,7 @@ class ClickUpCharts:
         
         return fig
     
-    def grafico_barras_estados(self, df):
+    def grafico_barras_estados(self, df, espacios_filtrados=None, estados_filtrados=None, prioridades_filtradas=None, fecha_creacion_rango=None, fecha_cierre_rango=None):
         """Gráfico de barras: distribución de tareas por estado"""
         if df.empty:
             st.warning("No hay datos para mostrar el gráfico de estados")
@@ -103,10 +158,16 @@ class ClickUpCharts:
         # Contar tareas por estado
         estado_counts = df['Estado'].value_counts()
         
+        # Generar título dinámico
+        titulo = self._generar_titulo_filtrado(
+            "📊 Distribución de Tareas por Estado",
+            espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango
+        )
+        
         fig = px.bar(
             x=estado_counts.index,
             y=estado_counts.values,
-            title="📊 Distribución de Tareas por Estado",
+            title=titulo,
             color=estado_counts.values,
             color_continuous_scale='viridis'
         )
@@ -130,7 +191,7 @@ class ClickUpCharts:
         
         return fig
     
-    def grafico_columnas_asignados(self, df):
+    def grafico_columnas_asignados(self, df, espacios_filtrados=None, estados_filtrados=None, prioridades_filtradas=None, fecha_creacion_rango=None, fecha_cierre_rango=None):
         """Gráfico de columnas apiladas: tareas por asignado"""
         if df.empty:
             st.warning("No hay datos para mostrar el gráfico de asignados")
@@ -172,12 +233,18 @@ class ClickUpCharts:
         # Contar asignaciones por persona y espacio
         pivot_data = df_asignados.groupby(['Asignado', 'Espacio']).size().reset_index(name='Cantidad')
         
+        # Generar título dinámico
+        titulo = self._generar_titulo_filtrado(
+            "👥 Distribución de Tareas por Asignado y Espacio",
+            espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango
+        )
+        
         fig = px.bar(
             pivot_data,
             x='Asignado',
             y='Cantidad',
             color='Espacio',
-            title="👥 Distribución de Tareas por Asignado y Espacio",
+            title=titulo,
             color_discrete_sequence=self.color_palette
         )
         
@@ -201,7 +268,7 @@ class ClickUpCharts:
         
         return fig
     
-    def grafico_barras_fechas_agentes(self, df):
+    def grafico_barras_fechas_agentes(self, df, espacios_filtrados=None, estados_filtrados=None, prioridades_filtradas=None, fecha_creacion_rango=None, fecha_cierre_rango=None):
         """Gráfico de barras apiladas: comparación de fechas de creación y cierre por agente"""
         if df.empty:
             st.warning("No hay datos para mostrar el gráfico de fechas por agente")
@@ -269,12 +336,18 @@ class ClickUpCharts:
         # Agrupar por agente y tipo de fecha
         pivot_data = df_fechas.groupby(['Agente', 'Tipo']).size().reset_index(name='Cantidad')
         
+        # Generar título dinámico
+        titulo = self._generar_titulo_filtrado(
+            "📅 Comparación de Fechas de Creación vs Cierre por Agente",
+            espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango
+        )
+        
         fig = px.bar(
             pivot_data,
             x='Agente',
             y='Cantidad',
             color='Tipo',
-            title="📅 Comparación de Fechas de Creación vs Cierre por Agente",
+            title=titulo,
             color_discrete_map={
                 'Creación': '#2E86AB',  # Azul
                 'Cierre': '#A23B72'     # Púrpura
@@ -309,13 +382,31 @@ class ClickUpCharts:
         
         return fig
     
-    def mostrar_todos_los_graficos(self, df):
+    def mostrar_todos_los_graficos(self, df, espacios_filtrados=None, estados_filtrados=None, prioridades_filtradas=None, fecha_creacion_rango=None, fecha_cierre_rango=None):
         """Muestra todos los gráficos en la interfaz de Streamlit"""
         if df.empty:
             st.warning("No hay datos para mostrar gráficos")
             return
         
         st.subheader("📊 Análisis Visual de Tareas")
+        
+        # Mostrar información de filtros aplicados
+        if espacios_filtrados or estados_filtrados or prioridades_filtradas or fecha_creacion_rango or fecha_cierre_rango:
+            filtros_info = []
+            if espacios_filtrados:
+                filtros_info.append(f"**Espacios:** {', '.join(espacios_filtrados)}")
+            if estados_filtrados:
+                filtros_info.append(f"**Estados:** {', '.join(estados_filtrados)}")
+            if prioridades_filtradas:
+                filtros_info.append(f"**Prioridades:** {', '.join(prioridades_filtradas)}")
+            if fecha_creacion_rango:
+                desde, hasta = fecha_creacion_rango
+                filtros_info.append(f"**Creación:** {desde} - {hasta}")
+            if fecha_cierre_rango:
+                desde, hasta = fecha_cierre_rango
+                filtros_info.append(f"**Cierre:** {desde} - {hasta}")
+            
+            st.info(f"🔍 **Filtros aplicados:** {' | '.join(filtros_info)}")
         
         # Crear pestañas para los gráficos
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -328,31 +419,31 @@ class ClickUpCharts:
         
         with tab1:
             st.markdown("### 🍰 Distribución de Tareas por Espacio")
-            fig1 = self.grafico_torta_espacios(df)
+            fig1 = self.grafico_torta_espacios(df, espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango)
             if fig1:
                 st.plotly_chart(fig1, use_container_width=True)
         
         with tab2:
             st.markdown("### 📈 Evolución de Tareas Creadas")
-            fig2 = self.grafico_lineas_fechas(df)
+            fig2 = self.grafico_lineas_fechas(df, espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango)
             if fig2:
                 st.plotly_chart(fig2, use_container_width=True)
         
         with tab3:
             st.markdown("### 📊 Distribución por Estado")
-            fig3 = self.grafico_barras_estados(df)
+            fig3 = self.grafico_barras_estados(df, espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango)
             if fig3:
                 st.plotly_chart(fig3, use_container_width=True)
         
         with tab4:
             st.markdown("### 👥 Tareas por Asignado y Espacio")
-            fig4 = self.grafico_columnas_asignados(df)
+            fig4 = self.grafico_columnas_asignados(df, espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango)
             if fig4:
                 st.plotly_chart(fig4, use_container_width=True)
         
         with tab5:
             st.markdown("### 📅 Comparación de Fechas por Agente")
-            fig5 = self.grafico_barras_fechas_agentes(df)
+            fig5 = self.grafico_barras_fechas_agentes(df, espacios_filtrados, estados_filtrados, prioridades_filtradas, fecha_creacion_rango, fecha_cierre_rango)
             if fig5:
                 st.plotly_chart(fig5, use_container_width=True)
 

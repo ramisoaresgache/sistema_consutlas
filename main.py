@@ -4,6 +4,8 @@ Aplicación modularizada para consultas de base de datos con autenticación
 """
 
 import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta
 from config import PAGE_CONFIG, TABS_CONFIG
 from auth import auth_manager
 from ui_components import ui_components
@@ -145,36 +147,81 @@ def main():
                 )
 
                 with col_filter1:
-                    espacios = ["Todos"] + sorted(df["Espacio"].unique().tolist())
-                    espacio_selected = st.selectbox("Espacio", espacios)
+                    espacios_disponibles = sorted(df["Espacio"].unique().tolist())
+                    espacios_selected = st.multiselect(
+                        "Espacios (múltiple)", 
+                        espacios_disponibles,
+                        help="Selecciona uno o múltiples espacios. Si no seleccionas ninguno, se mostrarán todos."
+                    )
 
                 with col_filter2:
-                    estados = ["Todos"] + sorted(df["Estado"].unique().tolist())
-                    estado_selected = st.selectbox("Estado", estados)
+                    estados_disponibles = sorted(df["Estado"].unique().tolist())
+                    estados_selected = st.multiselect(
+                        "Estados (múltiple)", 
+                        estados_disponibles,
+                        help="Selecciona uno o múltiples estados. Si no seleccionas ninguno, se mostrarán todos."
+                    )
 
                 with col_filter3:
-                    prioridades = ["Todos"] + sorted(
-                        [p for p in df["Prioridad"].unique() if p]
+                    prioridades_disponibles = sorted([p for p in df["Prioridad"].unique() if p])
+                    prioridades_selected = st.multiselect(
+                        "Prioridades (múltiple)", 
+                        prioridades_disponibles,
+                        help="Selecciona una o múltiples prioridades. Si no seleccionas ninguna, se mostrarán todas."
                     )
-                    prioridad_selected = st.selectbox("Prioridad", prioridades)
 
                 with col_filter4:
-                    # Obtener fechas únicas sin duplicados y ordenar descendente
-                    fechas_creacion_unicas = (
-                        df["Fecha Creación"].dropna().dt.date.unique()
-                    )
-                    fechas_creacion = ["Todos"] + sorted(
-                        [str(f) for f in fechas_creacion_unicas], reverse=True
-                    )
-                    fecha_selected = st.selectbox("Fecha Creación", fechas_creacion)
+                    st.write("**Rango Fecha Creación**")
+                    # Obtener rango de fechas de creación
+                    fechas_creacion_min = df["Fecha Creación"].dropna().dt.date.min()
+                    fechas_creacion_max = df["Fecha Creación"].dropna().dt.date.max()
+                    
+                    if fechas_creacion_min and fechas_creacion_max:
+                        fecha_creacion_desde = st.date_input(
+                            "Desde:", 
+                            value=fechas_creacion_min,
+                            min_value=fechas_creacion_min,
+                            max_value=fechas_creacion_max,
+                            key="fecha_creacion_desde"
+                        )
+                        fecha_creacion_hasta = st.date_input(
+                            "Hasta:", 
+                            value=fechas_creacion_max,
+                            min_value=fechas_creacion_min,
+                            max_value=fechas_creacion_max,
+                            key="fecha_creacion_hasta"
+                        )
+                    else:
+                        fecha_creacion_desde = None
+                        fecha_creacion_hasta = None
 
                 with col_filter5:
-                    # Obtener fechas únicas sin duplicados y ordenar descendente
-                    fechas_cierre_unicas = df["Fecha Cierre"].dropna().dt.date.unique()
-                    fechas_cierre = ["Todos"] + sorted(
-                        [str(f) for f in fechas_cierre_unicas], reverse=True
-                    )
-                    fecha_cierre_selected = st.selectbox("Fecha Cierre", fechas_cierre)
+                    st.write("**Rango Fecha Cierre**")
+                    # Obtener rango de fechas de cierre
+                    fechas_cierre_validas = df["Fecha Cierre"].dropna()
+                    
+                    if not fechas_cierre_validas.empty:
+                        fechas_cierre_min = fechas_cierre_validas.dt.date.min()
+                        fechas_cierre_max = fechas_cierre_validas.dt.date.max()
+                        
+                        fecha_cierre_desde = st.date_input(
+                            "Desde:", 
+                            value=fechas_cierre_min,
+                            min_value=fechas_cierre_min,
+                            max_value=fechas_cierre_max,
+                            key="fecha_cierre_desde"
+                        )
+                        fecha_cierre_hasta = st.date_input(
+                            "Hasta:", 
+                            value=fechas_cierre_max,
+                            min_value=fechas_cierre_min,
+                            max_value=fechas_cierre_max,
+                            key="fecha_cierre_hasta"
+                        )
+                    else:
+                        fecha_cierre_desde = None
+                        fecha_cierre_hasta = None
+                        st.info("No hay tareas con fecha de cierre")
 
                 # Aplicar filtros
                 df_filtered = df.copy()
@@ -194,32 +241,57 @@ def main():
                         )
                     ]
 
-                if espacio_selected != "Todos":
+                # Aplicar filtro de espacios (selección múltiple)
+                if espacios_selected:  # Si hay espacios seleccionados
                     df_filtered = df_filtered[
-                        df_filtered["Espacio"] == espacio_selected
+                        df_filtered["Espacio"].isin(espacios_selected)
                     ]
 
-                if estado_selected != "Todos":
-                    df_filtered = df_filtered[df_filtered["Estado"] == estado_selected]
+                # Aplicar filtro de estados (selección múltiple)
+                if estados_selected:  # Si hay estados seleccionados
+                    df_filtered = df_filtered[df_filtered["Estado"].isin(estados_selected)]
 
-                if prioridad_selected != "Todos":
+                # Aplicar filtro de prioridades (selección múltiple)
+                if prioridades_selected:  # Si hay prioridades seleccionadas
                     df_filtered = df_filtered[
-                        df_filtered["Prioridad"] == prioridad_selected
+                        df_filtered["Prioridad"].isin(prioridades_selected)
                     ]
 
-                if fecha_selected != "Todos":
-                    # Filtrar por fecha de creación
-                    df_filtered = df_filtered[
-                        df_filtered["Fecha Creación"].dt.date.astype(str)
-                        == fecha_selected
-                    ]
+                # Aplicar filtro de rango de fecha de creación
+                if fecha_creacion_desde and fecha_creacion_hasta:
+                    # Asegurar que la fecha "desde" no sea mayor que "hasta"
+                    if fecha_creacion_desde <= fecha_creacion_hasta:
+                        # Convertir las fechas a datetime para comparación segura
+                        fecha_desde_dt = datetime.combine(fecha_creacion_desde, datetime.min.time())
+                        fecha_hasta_dt = datetime.combine(fecha_creacion_hasta, datetime.max.time())
+                        
+                        # Filtrar solo registros con fechas válidas (no NaT)
+                        mask_fecha_creacion = (
+                            df_filtered["Fecha Creación"].notna() &
+                            (df_filtered["Fecha Creación"] >= fecha_desde_dt) &
+                            (df_filtered["Fecha Creación"] <= fecha_hasta_dt)
+                        )
+                        df_filtered = df_filtered[mask_fecha_creacion]
+                    else:
+                        st.warning("⚠️ La fecha 'desde' de creación no puede ser mayor que la fecha 'hasta'")
 
-                if fecha_cierre_selected != "Todos":
-                    # Filtrar por fecha de cierre
-                    df_filtered = df_filtered[
-                        df_filtered["Fecha Cierre"].dt.date.astype(str)
-                        == fecha_cierre_selected
-                    ]
+                # Aplicar filtro de rango de fecha de cierre
+                if fecha_cierre_desde and fecha_cierre_hasta:
+                    # Asegurar que la fecha "desde" no sea mayor que "hasta"
+                    if fecha_cierre_desde <= fecha_cierre_hasta:
+                        # Convertir las fechas a datetime para comparación segura
+                        fecha_desde_dt = datetime.combine(fecha_cierre_desde, datetime.min.time())
+                        fecha_hasta_dt = datetime.combine(fecha_cierre_hasta, datetime.max.time())
+                        
+                        # Filtrar solo registros con fechas válidas (no NaT)
+                        mask_fecha_cierre = (
+                            df_filtered["Fecha Cierre"].notna() &
+                            (df_filtered["Fecha Cierre"] >= fecha_desde_dt) &
+                            (df_filtered["Fecha Cierre"] <= fecha_hasta_dt)
+                        )
+                        df_filtered = df_filtered[mask_fecha_cierre]
+                    else:
+                        st.warning("⚠️ La fecha 'desde' de cierre no puede ser mayor que la fecha 'hasta'")
 
                 st.divider()
 
@@ -277,7 +349,23 @@ def main():
                     try:
                         from reportes.clickup_charts import clickup_charts
 
-                        clickup_charts.mostrar_todos_los_graficos(df_filtered)
+                        # Preparar rangos de fechas para pasar a gráficos
+                        fecha_creacion_rango_param = None
+                        if fecha_creacion_desde and fecha_creacion_hasta and fecha_creacion_desde <= fecha_creacion_hasta:
+                            fecha_creacion_rango_param = (fecha_creacion_desde, fecha_creacion_hasta)
+                        
+                        fecha_cierre_rango_param = None
+                        if fecha_cierre_desde and fecha_cierre_hasta and fecha_cierre_desde <= fecha_cierre_hasta:
+                            fecha_cierre_rango_param = (fecha_cierre_desde, fecha_cierre_hasta)
+
+                        clickup_charts.mostrar_todos_los_graficos(
+                            df_filtered, 
+                            espacios_filtrados=espacios_selected if espacios_selected else None,
+                            estados_filtrados=estados_selected if estados_selected else None,
+                            prioridades_filtradas=prioridades_selected if prioridades_selected else None,
+                            fecha_creacion_rango=fecha_creacion_rango_param,
+                            fecha_cierre_rango=fecha_cierre_rango_param
+                        )
                     except ImportError:
                         st.error(
                             "❌ No se pudo cargar el módulo de gráficos. Verificá que Plotly esté instalado."
