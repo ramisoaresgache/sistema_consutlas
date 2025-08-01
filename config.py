@@ -128,7 +128,7 @@ SQL_QUERIES = {
     """,
     "cuenta_corriente": """
         SELECT d.d_sub_cod as sistema, t.n_transac as transaccion, 
-               t.c_cuenta as cuenta, t.c_tasa as tasa, t.n_ano as ano, 
+               t.c_cuenta as cuenta, s.d_tasa as tasa, t.n_ano as ano, 
                t.n_cuota as cuota, c.c_estado_deuda as estado_deuda, 
                t.c_actual as estado_actual, c.n_comprob as comprobante, 
                c.n_orden as orden, c.f_pago as pago, 
@@ -138,7 +138,8 @@ SQL_QUERIES = {
         FROM transacciones t
         INNER JOIN cta_cte c ON t.n_transac = c.n_transac
         JOIN codificaciones d ON t.c_sistema = d.c_sub_cod
-        JOIN estadisticas_lugares_de_pago e ON c.c_lugar_pago = e.c_lugar_pago
+        LEFT JOIN estadisticas_lugares_de_pago e ON c.c_lugar_pago = e.c_lugar_pago
+        JOIN tasas s ON t.c_tasa = s.c_tasa
         WHERE {where_clause}
         AND d.c_codificacion = 11
         ORDER BY t.c_sistema, t.n_transac,t.n_ano, t.n_cuota, c.n_orden

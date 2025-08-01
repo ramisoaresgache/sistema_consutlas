@@ -93,13 +93,25 @@ class ConsultaDeclaracionesJuradas:
                     cuits_str = ','.join(cuits_quoted)
                     conditions.append(f"a.n_cuit IN ({cuits_str})")
 
-            # Procesar cuenta
+            # Procesar cuenta - MEJORAR LA VALIDACIÓN
             if cuenta_input.strip():
-                cuentas = [x.strip() for x in cuenta_input.split(',') if x.strip().isdigit()]
+                # Limpiar más agresivamente y validar
+                cuentas_raw = [x.strip() for x in cuenta_input.split(",") if x.strip()]
+                cuentas = []
+
+                for cuenta in cuentas_raw:
+                    # Limpiar caracteres no numéricos pero mantener solo dígitos
+                    cuenta_limpia = "".join(filter(str.isdigit, cuenta))
+                    if cuenta_limpia and cuenta_limpia.isdigit():
+                        cuentas.append(cuenta_limpia)
+
                 if cuentas:
                     # c_cuenta es integer - NO necesita comillas
                     cuentas_str = ','.join(cuentas)
                     conditions.append(f"a.c_cuenta IN ({cuentas_str})")
+
+                    # Debug: mostrar qué cuentas se están buscando
+                    st.info(f"🔍 Buscando cuentas: {', '.join(cuentas)}")
 
             # Procesar ID simplificado
             if id_simplificado_input.strip():
