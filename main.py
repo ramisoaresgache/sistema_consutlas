@@ -142,8 +142,8 @@ def main():
                     )
 
                 # Filtros existentes en segunda fila
-                col_filter1, col_filter2, col_filter3, col_filter4, col_filter5 = (
-                    st.columns(5)
+                col_filter1, col_filter2, col_filter3, col_filter4, col_filter5, col_filter6 = (
+                    st.columns(6)
                 )
 
                 with col_filter1:
@@ -172,56 +172,169 @@ def main():
 
                 with col_filter4:
                     st.write("**Rango Fecha Creación**")
-                    # Obtener rango de fechas de creación
-                    fechas_creacion_min = df["Fecha Creación"].dropna().dt.date.min()
-                    fechas_creacion_max = df["Fecha Creación"].dropna().dt.date.max()
                     
-                    if fechas_creacion_min and fechas_creacion_max:
-                        fecha_creacion_desde = st.date_input(
-                            "Desde:", 
-                            value=fechas_creacion_min,
-                            min_value=fechas_creacion_min,
-                            max_value=fechas_creacion_max,
-                            key="fecha_creacion_desde"
-                        )
-                        fecha_creacion_hasta = st.date_input(
-                            "Hasta:", 
-                            value=fechas_creacion_max,
-                            min_value=fechas_creacion_min,
-                            max_value=fechas_creacion_max,
-                            key="fecha_creacion_hasta"
-                        )
+                    # Checkbox para activar/desactivar filtro
+                    usar_filtro_creacion = st.checkbox(
+                        "Filtrar por fecha de creación",
+                        value=False,
+                        key="checkbox_fecha_creacion"
+                    )
+                    
+                    if usar_filtro_creacion:
+                        # Obtener rango de fechas de creación
+                        fechas_creacion_min = df["Fecha Creación"].dropna().dt.date.min()
+                        fechas_creacion_max = df["Fecha Creación"].dropna().dt.date.max()
+                        
+                        if fechas_creacion_min and fechas_creacion_max:
+                            # Usar un rango más amplio para permitir flexibilidad
+                            from datetime import date
+                            min_date_allowed = date(2020, 1, 1)  # Fecha mínima permitida
+                            max_date_allowed = date(2030, 12, 31)  # Fecha máxima permitida
+                            
+                            fecha_creacion_desde = st.date_input(
+                                "Desde:", 
+                                value=fechas_creacion_min,
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_creacion_desde"
+                            )
+                            fecha_creacion_hasta = st.date_input(
+                                "Hasta:", 
+                                value=fechas_creacion_max,
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_creacion_hasta"
+                            )
+                        else:
+                            fecha_creacion_desde = None
+                            fecha_creacion_hasta = None
                     else:
                         fecha_creacion_desde = None
                         fecha_creacion_hasta = None
 
                 with col_filter5:
                     st.write("**Rango Fecha Cierre**")
-                    # Obtener rango de fechas de cierre
-                    fechas_cierre_validas = df["Fecha Cierre"].dropna()
                     
-                    if not fechas_cierre_validas.empty:
-                        fechas_cierre_min = fechas_cierre_validas.dt.date.min()
-                        fechas_cierre_max = fechas_cierre_validas.dt.date.max()
+                    # Checkbox para activar/desactivar filtro
+                    usar_filtro_cierre = st.checkbox(
+                        "Filtrar por fecha de cierre",
+                        value=False,
+                        key="checkbox_fecha_cierre"
+                    )
+                    
+                    if usar_filtro_cierre:
+                        # Obtener rango de fechas de cierre
+                        fechas_cierre_validas = df["Fecha Cierre"].dropna()
                         
-                        fecha_cierre_desde = st.date_input(
-                            "Desde:", 
-                            value=fechas_cierre_min,
-                            min_value=fechas_cierre_min,
-                            max_value=fechas_cierre_max,
-                            key="fecha_cierre_desde"
-                        )
-                        fecha_cierre_hasta = st.date_input(
-                            "Hasta:", 
-                            value=fechas_cierre_max,
-                            min_value=fechas_cierre_min,
-                            max_value=fechas_cierre_max,
-                            key="fecha_cierre_hasta"
-                        )
+                        if not fechas_cierre_validas.empty:
+                            fechas_cierre_min = fechas_cierre_validas.dt.date.min()
+                            fechas_cierre_max = fechas_cierre_validas.dt.date.max()
+                            
+                            # Usar un rango más amplio para permitir flexibilidad
+                            from datetime import date
+                            min_date_allowed = date(2020, 1, 1)  # Fecha mínima permitida
+                            max_date_allowed = date(2030, 12, 31)  # Fecha máxima permitida
+                            
+                            fecha_cierre_desde = st.date_input(
+                                "Desde:", 
+                                value=fechas_cierre_min,
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_cierre_desde"
+                            )
+                            fecha_cierre_hasta = st.date_input(
+                                "Hasta:", 
+                                value=fechas_cierre_max,
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_cierre_hasta"
+                            )
+                        else:
+                            # Si no hay fechas de cierre, usar valores por defecto
+                            from datetime import date
+                            min_date_allowed = date(2020, 1, 1)
+                            max_date_allowed = date(2030, 12, 31)
+                            
+                            fecha_cierre_desde = st.date_input(
+                                "Desde:", 
+                                value=date.today(),
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_cierre_desde"
+                            )
+                            fecha_cierre_hasta = st.date_input(
+                                "Hasta:", 
+                                value=date.today(),
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_cierre_hasta"
+                            )
+                            st.info("ℹ️ No hay tareas con fecha de cierre en los datos. Puedes seleccionar cualquier rango.")
                     else:
                         fecha_cierre_desde = None
                         fecha_cierre_hasta = None
-                        st.info("No hay tareas con fecha de cierre")
+
+                with col_filter6:
+                    st.write("**Rango Fecha Vencimiento**")
+                    
+                    # Checkbox para activar/desactivar filtro
+                    usar_filtro_vencimiento = st.checkbox(
+                        "Filtrar por fecha de vencimiento",
+                        value=False,
+                        key="checkbox_fecha_vencimiento"
+                    )
+                    
+                    if usar_filtro_vencimiento:
+                        # Obtener rango de fechas de vencimiento
+                        fechas_vencimiento_validas = df["Fecha Vencimiento"].dropna()
+                        
+                        if not fechas_vencimiento_validas.empty:
+                            fechas_vencimiento_min = fechas_vencimiento_validas.dt.date.min()
+                            fechas_vencimiento_max = fechas_vencimiento_validas.dt.date.max()
+                            
+                            # Usar un rango más amplio para permitir flexibilidad
+                            from datetime import date
+                            min_date_allowed = date(2020, 1, 1)  # Fecha mínima permitida
+                            max_date_allowed = date(2030, 12, 31)  # Fecha máxima permitida
+                            
+                            fecha_vencimiento_desde = st.date_input(
+                                "Desde:", 
+                                value=fechas_vencimiento_min,
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_vencimiento_desde"
+                            )
+                            fecha_vencimiento_hasta = st.date_input(
+                                "Hasta:", 
+                                value=fechas_vencimiento_max,
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_vencimiento_hasta"
+                            )
+                        else:
+                            # Si no hay fechas de vencimiento, usar valores por defecto
+                            from datetime import date
+                            min_date_allowed = date(2020, 1, 1)
+                            max_date_allowed = date(2030, 12, 31)
+                            
+                            fecha_vencimiento_desde = st.date_input(
+                                "Desde:", 
+                                value=date.today(),
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_vencimiento_desde"
+                            )
+                            fecha_vencimiento_hasta = st.date_input(
+                                "Hasta:", 
+                                value=date.today(),
+                                min_value=min_date_allowed,
+                                max_value=max_date_allowed,
+                                key="fecha_vencimiento_hasta"
+                            )
+                            st.info("ℹ️ No hay tareas con fecha de vencimiento en los datos. Puedes seleccionar cualquier rango.")
+                    else:
+                        fecha_vencimiento_desde = None
+                        fecha_vencimiento_hasta = None
 
                 # Aplicar filtros
                 df_filtered = df.copy()
@@ -293,6 +406,24 @@ def main():
                     else:
                         st.warning("⚠️ La fecha 'desde' de cierre no puede ser mayor que la fecha 'hasta'")
 
+                # Aplicar filtro de rango de fecha de vencimiento
+                if fecha_vencimiento_desde and fecha_vencimiento_hasta:
+                    # Asegurar que la fecha "desde" no sea mayor que "hasta"
+                    if fecha_vencimiento_desde <= fecha_vencimiento_hasta:
+                        # Convertir las fechas a datetime para comparación segura
+                        fecha_desde_dt = datetime.combine(fecha_vencimiento_desde, datetime.min.time())
+                        fecha_hasta_dt = datetime.combine(fecha_vencimiento_hasta, datetime.max.time())
+                        
+                        # Filtrar solo registros con fechas válidas (no NaT)
+                        mask_fecha_vencimiento = (
+                            df_filtered["Fecha Vencimiento"].notna() &
+                            (df_filtered["Fecha Vencimiento"] >= fecha_desde_dt) &
+                            (df_filtered["Fecha Vencimiento"] <= fecha_hasta_dt)
+                        )
+                        df_filtered = df_filtered[mask_fecha_vencimiento]
+                    else:
+                        st.warning("⚠️ La fecha 'desde' de vencimiento no puede ser mayor que la fecha 'hasta'")
+
                 st.divider()
 
                 # Mostrar tabla filtrada
@@ -357,6 +488,10 @@ def main():
                         fecha_cierre_rango_param = None
                         if fecha_cierre_desde and fecha_cierre_hasta and fecha_cierre_desde <= fecha_cierre_hasta:
                             fecha_cierre_rango_param = (fecha_cierre_desde, fecha_cierre_hasta)
+                        
+                        fecha_vencimiento_rango_param = None
+                        if fecha_vencimiento_desde and fecha_vencimiento_hasta and fecha_vencimiento_desde <= fecha_vencimiento_hasta:
+                            fecha_vencimiento_rango_param = (fecha_vencimiento_desde, fecha_vencimiento_hasta)
 
                         clickup_charts.mostrar_todos_los_graficos(
                             df_filtered, 
@@ -364,7 +499,8 @@ def main():
                             estados_filtrados=estados_selected if estados_selected else None,
                             prioridades_filtradas=prioridades_selected if prioridades_selected else None,
                             fecha_creacion_rango=fecha_creacion_rango_param,
-                            fecha_cierre_rango=fecha_cierre_rango_param
+                            fecha_cierre_rango=fecha_cierre_rango_param,
+                            fecha_vencimiento_rango=fecha_vencimiento_rango_param
                         )
                     except ImportError:
                         st.error(
