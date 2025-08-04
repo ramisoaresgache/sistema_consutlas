@@ -69,6 +69,11 @@ TABS_CONFIG = {
         "header": "Consulta de Planes de Pago",
         "description": "Ingresá el número de plan para consultar la información detallada.",
     },
+    "debitos_automaticos": {
+        "name": "🏦 Consulta de Débitos Automáticos",
+        "header": "Consulta de Débitos Automáticos",
+        "description": "Consultá débitos automáticos de ABL y PPC ePagos. Podés filtrar por uno o más campos.",
+    },
 }
 
 # Mensajes del sistema
@@ -294,24 +299,51 @@ SELECT unique
         ORDER BY a.n_plan, b.n_cuota_plan
     """,
     "planes_transacciones": """
-   SELECT 
-       c.d_sub_cod as sistema,
-       a.n_plan as plan, 
-       a.n_cuota_plan as cuota_plan,
-       b.c_cuenta as cuenta,
-       b.c_tasa as tasa,
-       b.n_ano as ano,
-       b.n_cuota as cuota_periodo,
-       b.c_actual as estado,
-       a.i_capital as capital,
-       a.i_recargo as recargo,
-       a.i_multa as multa
-       FROM per_cuotas_ppc a, transacciones b, codificaciones c
-       WHERE a.n_transac = b.n_transac 
-       AND c.c_codificacion = 11
-       AND b.c_sistema = c.c_sub_cod
-       AND {where_clause}
-    """,
+        SELECT 
+            c.d_sub_cod as sistema,
+            a.n_plan as plan, 
+            a.n_cuota_plan as cuota_plan,
+            b.c_cuenta as cuenta,
+            b.c_tasa as tasa,
+            b.n_ano as ano,
+            b.n_cuota as cuota_periodo,
+            b.c_actual as estado,
+            a.i_capital as capital,
+            a.i_recargo as recargo,
+            a.i_multa as multa
+        FROM per_cuotas_ppc a, transacciones b, codificaciones c
+        WHERE a.n_transac = b.n_transac 
+        AND c.c_codificacion = 11
+        AND b.c_sistema = c.c_sub_cod
+        AND {where_clause}
+    ""","debitos_abl": """
+    SELECT 
+            b.d_sub_cod,
+            a.c_cuenta AS cuenta, 
+            a.c_tasa as tasa,
+            a.f_alta AS alta_debito,
+    CASE 
+        WHEN a.f_baja > TODAY THEN 'activo'
+        WHEN a.f_baja <= TODAY THEN TO_CHAR(a.f_baja, '%Y-%m-%d') 
+    END AS baja_debito
+    FROM debitos a, codificaciones b 
+    WHERE {where_clause}
+    AND a.c_banco = b.c_sub_cod 
+    AND b.c_codificacion = 37  
+""","debitos_ppc_epagos": """
+    select distinct
+        a.n_plan as plan, 
+        b.n_cuit as cuit, 
+        b.f_alta as fecha_alta, 
+        b.f_baja as fecha_baja, 
+    case
+        when a.c_estado = "FIN" then "FINALIZADO" 
+        when a.c_estado = "PEN" then "PENDIENTE" 
+    end as estado
+    from ppc_epagos_debito_directo_estado a, ppc_epagos_debito_directo_registrados b
+    where a.n_plan = b.n_plan 
+    and a.n_plan {where_clause}
+""",
     "usuario_login": "SELECT n_legajo, d_nombre FROM usuarios WHERE n_legajo = ? AND n_legajo = ?",
     "usuario_nombre": "SELECT d_nombre FROM usuarios WHERE n_legajo = ?",
 }

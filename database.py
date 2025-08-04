@@ -148,6 +148,18 @@ class DatabaseManager:
         query = SQL_QUERIES["planes_transacciones"].format(where_clause=where_clause)
         return self.execute_query(query)
 
+    def consultar_debitos_abl(self, conditions):
+        """Consulta los débitos automáticos de ABL"""
+        where_clause = conditions
+        query = SQL_QUERIES["debitos_abl"].format(where_clause=where_clause)
+        return self.execute_query(query)
+
+    def consultar_debitos_ppc_epagos(self, conditions):
+        """Consulta los débitos automáticos de PPC ePagos"""
+        where_clause = conditions
+        query = SQL_QUERIES["debitos_ppc_epagos"].format(where_clause=where_clause)
+        return self.execute_query(query)
+
 
 # Instancia global del manejador de base de datos
 db_manager = DatabaseManager()
