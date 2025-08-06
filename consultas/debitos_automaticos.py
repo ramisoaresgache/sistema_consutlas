@@ -115,20 +115,19 @@ class ConsultaDebitosAutomaticos:
                             st.success(f"✅ Se encontraron {len(df_resultado)} registros de débitos ABL:")
                             st.dataframe(df_resultado, use_container_width=True)
                             
-                            # Botón de descarga
-                            if st.button("📥 Descargar como Excel", key="download_abl"):
-                                from io import BytesIO
-                                buffer = BytesIO()
-                                df_resultado.to_excel(buffer, index=False, engine="openpyxl")
-                                buffer.seek(0)
-                                
-                                st.download_button(
-                                    label="📥 Descargar Excel",
-                                    data=buffer.getvalue(),
-                                    file_name="debitos_abl.xlsx",
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    key="download_abl_btn"
-                                )
+                            # Botón de descarga directo
+                            from io import BytesIO
+                            buffer = BytesIO()
+                            df_resultado.to_excel(buffer, index=False, engine="openpyxl")
+                            buffer.seek(0)
+                            
+                            st.download_button(
+                                label="📥 Descargar como Excel",
+                                data=buffer.getvalue(),
+                                file_name="debitos_abl.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="download_abl_excel"
+                            )
                         else:
                             st.info("ℹ️ No se encontraron débitos ABL para las cuentas especificadas.")
 
@@ -169,20 +168,19 @@ class ConsultaDebitosAutomaticos:
                             st.success(f"✅ Se encontraron {len(df_resultado)} registros de débitos PPC ePagos:")
                             st.dataframe(df_resultado, use_container_width=True)
                             
-                            # Botón de descarga
-                            if st.button("📥 Descargar como Excel", key="download_ppc"):
-                                from io import BytesIO
-                                buffer = BytesIO()
-                                df_resultado.to_excel(buffer, index=False, engine="openpyxl")
-                                buffer.seek(0)
-                                
-                                st.download_button(
-                                    label="📥 Descargar Excel",
-                                    data=buffer.getvalue(),
-                                    file_name="debitos_ppc_epagos.xlsx",
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                    key="download_ppc_btn"
-                                )
+                            # Botón de descarga directo
+                            from io import BytesIO
+                            buffer = BytesIO()
+                            df_resultado.to_excel(buffer, index=False, engine="openpyxl")
+                            buffer.seek(0)
+                            
+                            st.download_button(
+                                label="📥 Descargar como Excel",
+                                data=buffer.getvalue(),
+                                file_name="debitos_ppc_epagos.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="download_ppc_excel"
+                            )
                         else:
                             st.info("ℹ️ No se encontraron débitos PPC ePagos para los criterios especificados.")
 

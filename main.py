@@ -119,13 +119,13 @@ def main():
 
                 with col2:
                     espacios_unicos = df["Espacio"].nunique()
-                    st.metric("🗂️ Espacios", espacios_unicos)
+                    st.metric("🗂️ Espacios ", espacios_unicos)
+
+                # with col3:
+                #     listas_unicas = df["Lista"].nunique()
+                #     st.metric("📋 Listas", listas_unicas)
 
                 with col3:
-                    listas_unicas = df["Lista"].nunique()
-                    st.metric("📋 Listas", listas_unicas)
-
-                with col4:
                     asignados_unicos = (
                         df["Asignados"]
                         .apply(lambda x: len(x.split(", ")) if x else 0)
@@ -433,7 +433,7 @@ def main():
                 st.divider()
 
                 # Mostrar tabla filtrada
-                st.subheader(f"✍🏼 Tareas ({len(df_filtered)} registros)")
+                st.subheader(f"✍🏼 Tareas ({len(df_filtered)} )")
 
                 # Configurar columnas para mostrar
                 columnas_mostrar = [

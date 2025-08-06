@@ -125,11 +125,19 @@ SQL_QUERIES = {
         AND codificaciones.c_sub_cod = recibos.c_sistema
     """,
     "lotes_bancarios": """
-        SELECT n_archivo as numero_lote, n_comprob as comprobante, 
-               f_cobro as fecha_cobro, c_cuenta as cuenta, 
-               i_registro as importe, n_plan as numero_plan
-        FROM bco_cab
-        WHERE {where_clause}
+SELECT 
+	a.n_archivo as numero_lote, 
+case 
+	when b.c_estado = 5 then "ACTUALIZADO" 
+	when b.c_estado = 2 then "PROCESASDO" 
+	when b.c_estado = 6 then "ANULADO" 
+end as estado,
+	a.n_comprob as comprobante, 
+	a.f_cobro as fecha_cobro, a.c_cuenta as cuenta, 
+	a.i_registro as importe, a.n_plan as numero_plan
+FROM bco_cab a, bco_archivos b
+WHERE a.n_archivo = b.n_archivo
+and {where_clause}
     """,
     "cuenta_corriente": """
         SELECT d.d_sub_cod as sistema, t.n_transac as transaccion, 
