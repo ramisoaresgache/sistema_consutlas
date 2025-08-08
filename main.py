@@ -172,25 +172,25 @@ def main():
 
                 with col_filter4:
                     st.write("**Rango Fecha Creación**")
-                    
+
                     # Checkbox para activar/desactivar filtro
                     usar_filtro_creacion = st.checkbox(
                         "Filtrar por fecha de creación",
                         value=False,
                         key="checkbox_fecha_creacion"
                     )
-                    
+
                     if usar_filtro_creacion:
                         # Obtener rango de fechas de creación
                         fechas_creacion_min = df["Fecha Creación"].dropna().dt.date.min()
                         fechas_creacion_max = df["Fecha Creación"].dropna().dt.date.max()
-                        
+
                         if fechas_creacion_min and fechas_creacion_max:
                             # Usar un rango más amplio para permitir flexibilidad
                             from datetime import date
                             min_date_allowed = date(2020, 1, 1)  # Fecha mínima permitida
                             max_date_allowed = date(2030, 12, 31)  # Fecha máxima permitida
-                            
+
                             fecha_creacion_desde = st.date_input(
                                 "Desde:", 
                                 value=fechas_creacion_min,
@@ -214,27 +214,27 @@ def main():
 
                 with col_filter5:
                     st.write("**Rango Fecha Cierre**")
-                    
+
                     # Checkbox para activar/desactivar filtro
                     usar_filtro_cierre = st.checkbox(
                         "Filtrar por fecha de cierre",
                         value=False,
                         key="checkbox_fecha_cierre"
                     )
-                    
+
                     if usar_filtro_cierre:
                         # Obtener rango de fechas de cierre
                         fechas_cierre_validas = df["Fecha Cierre"].dropna()
-                        
+
                         if not fechas_cierre_validas.empty:
                             fechas_cierre_min = fechas_cierre_validas.dt.date.min()
                             fechas_cierre_max = fechas_cierre_validas.dt.date.max()
-                            
+
                             # Usar un rango más amplio para permitir flexibilidad
                             from datetime import date
                             min_date_allowed = date(2020, 1, 1)  # Fecha mínima permitida
                             max_date_allowed = date(2030, 12, 31)  # Fecha máxima permitida
-                            
+
                             fecha_cierre_desde = st.date_input(
                                 "Desde:", 
                                 value=fechas_cierre_min,
@@ -254,7 +254,7 @@ def main():
                             from datetime import date
                             min_date_allowed = date(2020, 1, 1)
                             max_date_allowed = date(2030, 12, 31)
-                            
+
                             fecha_cierre_desde = st.date_input(
                                 "Desde:", 
                                 value=date.today(),
@@ -276,27 +276,27 @@ def main():
 
                 with col_filter6:
                     st.write("**Rango Fecha Vencimiento**")
-                    
+
                     # Checkbox para activar/desactivar filtro
                     usar_filtro_vencimiento = st.checkbox(
                         "Filtrar por fecha de vencimiento",
                         value=False,
                         key="checkbox_fecha_vencimiento"
                     )
-                    
+
                     if usar_filtro_vencimiento:
                         # Obtener rango de fechas de vencimiento
                         fechas_vencimiento_validas = df["Fecha Vencimiento"].dropna()
-                        
+
                         if not fechas_vencimiento_validas.empty:
                             fechas_vencimiento_min = fechas_vencimiento_validas.dt.date.min()
                             fechas_vencimiento_max = fechas_vencimiento_validas.dt.date.max()
-                            
+
                             # Usar un rango más amplio para permitir flexibilidad
                             from datetime import date
                             min_date_allowed = date(2020, 1, 1)  # Fecha mínima permitida
                             max_date_allowed = date(2030, 12, 31)  # Fecha máxima permitida
-                            
+
                             fecha_vencimiento_desde = st.date_input(
                                 "Desde:", 
                                 value=fechas_vencimiento_min,
@@ -316,7 +316,7 @@ def main():
                             from datetime import date
                             min_date_allowed = date(2020, 1, 1)
                             max_date_allowed = date(2030, 12, 31)
-                            
+
                             fecha_vencimiento_desde = st.date_input(
                                 "Desde:", 
                                 value=date.today(),
@@ -374,10 +374,13 @@ def main():
                 if fecha_creacion_desde and fecha_creacion_hasta:
                     # Asegurar que la fecha "desde" no sea mayor que "hasta"
                     if fecha_creacion_desde <= fecha_creacion_hasta:
+                        # Importar datetime como dt para evitar conflictos
+                        from datetime import datetime as dt
+
                         # Convertir las fechas a datetime para comparación segura
-                        fecha_desde_dt = datetime.combine(fecha_creacion_desde, datetime.min.time())
-                        fecha_hasta_dt = datetime.combine(fecha_creacion_hasta, datetime.max.time())
-                        
+                        fecha_desde_dt = dt.combine(fecha_creacion_desde, dt.min.time())
+                        fecha_hasta_dt = dt.combine(fecha_creacion_hasta, dt.max.time())
+
                         # Filtrar solo registros con fechas válidas (no NaT)
                         mask_fecha_creacion = (
                             df_filtered["Fecha Creación"].notna() &
@@ -392,10 +395,13 @@ def main():
                 if fecha_cierre_desde and fecha_cierre_hasta:
                     # Asegurar que la fecha "desde" no sea mayor que "hasta"
                     if fecha_cierre_desde <= fecha_cierre_hasta:
+                        # Importar datetime como dt para evitar conflictos
+                        from datetime import datetime as dt
+
                         # Convertir las fechas a datetime para comparación segura
-                        fecha_desde_dt = datetime.combine(fecha_cierre_desde, datetime.min.time())
-                        fecha_hasta_dt = datetime.combine(fecha_cierre_hasta, datetime.max.time())
-                        
+                        fecha_desde_dt = dt.combine(fecha_cierre_desde, dt.min.time())
+                        fecha_hasta_dt = dt.combine(fecha_cierre_hasta, dt.max.time())
+
                         # Filtrar solo registros con fechas válidas (no NaT)
                         mask_fecha_cierre = (
                             df_filtered["Fecha Cierre"].notna() &
@@ -410,10 +416,17 @@ def main():
                 if fecha_vencimiento_desde and fecha_vencimiento_hasta:
                     # Asegurar que la fecha "desde" no sea mayor que "hasta"
                     if fecha_vencimiento_desde <= fecha_vencimiento_hasta:
+                        # Importar datetime como dt para evitar conflictos
+                        from datetime import datetime as dt
+
                         # Convertir las fechas a datetime para comparación segura
-                        fecha_desde_dt = datetime.combine(fecha_vencimiento_desde, datetime.min.time())
-                        fecha_hasta_dt = datetime.combine(fecha_vencimiento_hasta, datetime.max.time())
-                        
+                        fecha_desde_dt = dt.combine(
+                            fecha_vencimiento_desde, dt.min.time()
+                        )
+                        fecha_hasta_dt = dt.combine(
+                            fecha_vencimiento_hasta, dt.max.time()
+                        )
+
                         # Filtrar solo registros con fechas válidas (no NaT)
                         mask_fecha_vencimiento = (
                             df_filtered["Fecha Vencimiento"].notna() &
@@ -457,21 +470,38 @@ def main():
                         height=400,
                     )
 
-                    # Botón de descarga
-                    if st.button("📥 Descargar datos filtrados como Excel"):
-                        from io import BytesIO
-                        import pandas as pd
+                    # REMOVER EL PRIMER BOTÓN - SOLO DEJAR EL SEGUNDO
+                    # Preparar datos de Excel para descarga directa
+                    try:
+                        import io
+                        from datetime import datetime as dt
 
-                        buffer = BytesIO()
-                        df_filtered.to_excel(buffer, index=False, engine="openpyxl")
-                        buffer.seek(0)
+                        # Crear archivo Excel
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                            df_filtered.to_excel(
+                                writer,
+                                index=False,
+                                sheet_name="ClickUp_Datos_Filtrados",
+                            )
 
+                        # Generar nombre con timestamp
+                        timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f"clickup_datos_filtrados_{timestamp}.xlsx"
+
+                        # UN SOLO BOTÓN que descarga directamente
                         st.download_button(
-                            label="📥 Descargar Excel",
-                            data=buffer.getvalue(),
-                            file_name="tareas_clickup_filtradas.xlsx",
+                            label="📥 Descargar datos filtrados como Excel",
+                            data=output.getvalue(),
+                            file_name=filename,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key=f"download_clickup_direct_{timestamp}",
+                            help="Descarga los datos filtrados directamente",
+                            use_container_width=True,
                         )
+
+                    except Exception as e:
+                        st.error(f"❌ Error al preparar descarga: {str(e)}")
 
                     # Agregar gráficos interactivos
                     st.divider()
@@ -484,11 +514,11 @@ def main():
                         fecha_creacion_rango_param = None
                         if fecha_creacion_desde and fecha_creacion_hasta and fecha_creacion_desde <= fecha_creacion_hasta:
                             fecha_creacion_rango_param = (fecha_creacion_desde, fecha_creacion_hasta)
-                        
+
                         fecha_cierre_rango_param = None
                         if fecha_cierre_desde and fecha_cierre_hasta and fecha_cierre_desde <= fecha_cierre_hasta:
                             fecha_cierre_rango_param = (fecha_cierre_desde, fecha_cierre_hasta)
-                        
+
                         fecha_vencimiento_rango_param = None
                         if fecha_vencimiento_desde and fecha_vencimiento_hasta and fecha_vencimiento_desde <= fecha_vencimiento_hasta:
                             fecha_vencimiento_rango_param = (fecha_vencimiento_desde, fecha_vencimiento_hasta)
