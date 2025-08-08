@@ -14,6 +14,7 @@ from consultas.lotes_bancarios import consulta_lotes_bancarios
 from consultas.cuenta_corriente import consulta_cuenta_corriente
 from consultas.declaraciones_juradas import consulta_declaraciones_juradas
 from consultas.planes import consulta_planes
+from consultas.debitos_automaticos import consulta_debitos_automaticos
 
 
 def main():
@@ -40,13 +41,14 @@ def main():
         st.write("Seleccioná el tipo de consulta que querés realizar:")
 
         # Sub-pestañas para cada tipo de consulta
-        subtab1, subtab2, subtab3, subtab4, subtab5 = st.tabs(
+        subtab1, subtab2, subtab3, subtab4, subtab5, subtab6 = st.tabs(
             [
                 TABS_CONFIG["recibos"]["name"],
                 TABS_CONFIG["lotes"]["name"],
                 TABS_CONFIG["cuenta_corriente"]["name"],
                 TABS_CONFIG["declaraciones_juradas"]["name"],
                 TABS_CONFIG["planes"]["name"],
+                TABS_CONFIG["debitos_automaticos"]["name"],
             ]
         )
 
@@ -69,6 +71,10 @@ def main():
         # SUB-PESTAÑA 5: CONSULTA DE PLANES
         with subtab5:
             consulta_planes.mostrar_interfaz()
+
+        # SUB-PESTAÑA 6: CONSULTA DE DÉBITOS AUTOMÁTICOS
+        with subtab6:
+            consulta_debitos_automaticos.mostrar_interfaz()
 
     # PESTAÑA 2: REPORTES (nueva sección)
     with tab_reportes:
@@ -113,13 +119,13 @@ def main():
 
                 with col2:
                     espacios_unicos = df["Espacio"].nunique()
-                    st.metric("🗂️ Espacios", espacios_unicos)
+                    st.metric("🗂️ Espacios ", espacios_unicos)
+
+                # with col3:
+                #     listas_unicas = df["Lista"].nunique()
+                #     st.metric("📋 Listas", listas_unicas)
 
                 with col3:
-                    listas_unicas = df["Lista"].nunique()
-                    st.metric("📋 Listas", listas_unicas)
-
-                with col4:
                     asignados_unicos = (
                         df["Asignados"]
                         .apply(lambda x: len(x.split(", ")) if x else 0)
@@ -440,7 +446,7 @@ def main():
                 st.divider()
 
                 # Mostrar tabla filtrada
-                st.subheader(f"✍🏼 Tareas ({len(df_filtered)} registros)")
+                st.subheader(f"✍🏼 Tareas ({len(df_filtered)} )")
 
                 # Configurar columnas para mostrar
                 columnas_mostrar = [
