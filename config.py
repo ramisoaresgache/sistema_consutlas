@@ -266,10 +266,8 @@ CASE
     WHEN e.c_sv2 > 0 THEN "SI"
     WHEN e.c_sv2 = 0 THEN "NO"
 END AS seguridad_vial2
-FROM ddjj_sh_cab a, ddjj_sh_det b, rubro_actividad_rel c, tasas d, tmp_graba_datos_cab e--, transacciones f
+FROM ddjj_sh_cab a, ddjj_sh_det b, rubro_actividad_rel c, tasas d, tmp_graba_datos_cab e
 WHERE a.c_id_ddjj = b.c_id_ddjj
---AND b.n_transac = f.n_transac
---AND b.i_imponible = e.i_imponible
 AND a.c_cuenta = e.c_cuenta 
 AND a.n_cuit = e.n_cuit 
 AND a.n_rub_act_prin = c.c_rubro
