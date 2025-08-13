@@ -169,11 +169,16 @@ def main():
                     )
 
                 with col_filter3:
-                    prioridades_disponibles = sorted([p for p in df["Prioridad"].unique() if p])
-                    prioridades_selected = st.multiselect(
-                        "Prioridades (múltiple)", 
-                        prioridades_disponibles,
-                        help="Selecciona una o múltiples prioridades. Si no seleccionas ninguna, se mostrarán todas."
+                    all_tags = set()
+                    # La columna 'Etiquetas' puede contener strings de tags separados por comas
+                    df['Etiquetas'].dropna().apply(
+                        lambda x: all_tags.update([tag.strip() for tag in str(x).split(',') if tag.strip()])
+                    )
+                    etiquetas_disponibles = sorted(list(all_tags))
+                    etiquetas_selected = st.multiselect(
+                        "Etiquetas (múltiple)",
+                        etiquetas_disponibles,
+                        help="Selecciona una o múltiples etiquetas para filtrar las tareas."
                     )
 
                 with col_filter4:
@@ -370,10 +375,13 @@ def main():
                 if estados_selected:  # Si hay estados seleccionados
                     df_filtered = df_filtered[df_filtered["Estado"].isin(estados_selected)]
 
-                # Aplicar filtro de prioridades (selección múltiple)
-                if prioridades_selected:  # Si hay prioridades seleccionadas
+                # Aplicar filtro de etiquetas (selección múltiple)
+                if etiquetas_selected:
+                    # Filtrar tareas que contengan CUALQUIERA de las etiquetas seleccionadas
                     df_filtered = df_filtered[
-                        df_filtered["Prioridad"].isin(prioridades_selected)
+                        df_filtered['Etiquetas'].dropna().apply(
+                            lambda x: any(tag.strip() in etiquetas_selected for tag in str(x).split(','))
+                        )
                     ]
 
                 # Aplicar filtro de rango de fecha de creación
@@ -464,20 +472,21 @@ def main():
                     )
 
                     # Botón de descarga
-                    if st.button("📥 Descargar datos filtrados como Excel"):
-                        from io import BytesIO
-                        import pandas as pd
+                    from io import BytesIO
+                    import pandas as pd
 
-                        buffer = BytesIO()
-                        df_filtered.to_excel(buffer, index=False, engine="openpyxl")
-                        buffer.seek(0)
+                    buffer = BytesIO()
+                    # Asegurarse de que las columnas a descargar son las mostradas
+                    df_to_download = df_filtered[columnas_disponibles]
+                    df_to_download.to_excel(buffer, index=False, engine="openpyxl")
+                    buffer.seek(0)
 
-                        st.download_button(
-                            label="📥 Descargar Excel",
-                            data=buffer.getvalue(),
-                            file_name="tareas_clickup_filtradas.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        )
+                    st.download_button(
+                        label="📥 Descargar datos filtrados como Excel",
+                        data=buffer.getvalue(),
+                        file_name="tareas_clickup_filtradas.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
 
                     # Agregar gráficos interactivos
                     st.divider()
@@ -503,7 +512,7 @@ def main():
                             df_filtered, 
                             espacios_filtrados=espacios_selected if espacios_selected else None,
                             estados_filtrados=estados_selected if estados_selected else None,
-                            prioridades_filtradas=prioridades_selected if prioridades_selected else None,
+                            etiquetas_filtradas=etiquetas_selected if etiquetas_selected else None,
                             fecha_creacion_rango=fecha_creacion_rango_param,
                             fecha_cierre_rango=fecha_cierre_rango_param,
                             fecha_vencimiento_rango=fecha_vencimiento_rango_param

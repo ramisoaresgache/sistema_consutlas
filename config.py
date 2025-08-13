@@ -324,21 +324,24 @@ WHERE a.n_transac = b.n_transac
 AND c.c_codificacion = 11
 AND b.c_sistema = c.c_sub_cod
 AND {where_clause}
-    ""","debitos_abl": """
+    """,
+    "debitos_abl": """
 SELECT 
         b.d_sub_cod,
         a.c_cuenta AS cuenta, 
         a.c_tasa as tasa,
         a.f_alta AS alta_debito,
+        a.f_baja AS fecha_baja,
 CASE 
     WHEN a.f_baja > TODAY THEN 'activo'
     WHEN a.f_baja <= TODAY THEN TO_CHAR(a.f_baja, '%Y-%m-%d') 
-END AS baja_debito
+END AS estado
 FROM debitos a, codificaciones b 
 WHERE {where_clause}
 AND a.c_banco = b.c_sub_cod 
 AND b.c_codificacion = 37  
-""","debitos_ppc_epagos": """
+""",
+    "debitos_ppc_epagos": """
 SELECT DISTINCT
     a.n_plan AS plan, 
     b.n_cuit AS cuit, 
