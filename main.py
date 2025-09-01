@@ -56,7 +56,7 @@ def main():
         with subtab1:
             consulta_recibos.mostrar_interfaz()
 
-        # SUB-PESTAÑA 2: CONSULTA DE LOTES BANCARIOS
+        # SUB-PESTAÑA 2: CONSULTA DE LOTES BANCARIOS Y DE LAS CAJAS
         with subtab2:
             consulta_lotes_bancarios.mostrar_interfaz()
 
@@ -473,7 +473,6 @@ def main():
 
                     # Botón de descarga
                     from io import BytesIO
-                    import pandas as pd
 
                     buffer = BytesIO()
                     # Asegurarse de que las columnas a descargar son las mostradas
@@ -531,21 +530,153 @@ def main():
 
         # SUB-PESTAÑA 2: REPORTES ESTADÍSTICOS
         with subtab_estadisticos:
-            st.subheader("📊 Reportes Estadísticos")
-            st.info("🚧 **Próximamente reportes estadísticos de recaudación**")
+            st.subheader("📊 Reportes Estadísticos de Recaudación")
 
-            st.markdown(
-                """
-            ### 📊 Reportes en Desarrollo
-            
-            En esta sección encontrarás:
-            
-            - 📈 **Reportes estadísticos** de recaudación
-            - 📅 **Reportes programados** automáticos
-            - 📋 **Análisis de tendencias** temporales
-            - 💰 **Resúmenes ejecutivos** de gestión
-            """
-            )
+            # Inputs de periodo
+            col_a, col_b, col_btn = st.columns([1, 1, 1])
+            with col_a:
+                ano_sel = st.number_input("Año", min_value=2000, max_value=2100, value=2025, step=1)
+            with col_b:
+                cuota_sel = st.number_input("Cuota", min_value=1, max_value=99, value=8, step=1)
+            with col_btn:
+                consultar = st.button("🔎 Consultar", use_container_width=True)
+
+            if consultar:
+                try:
+                    from database import db_manager
+                    import importlib
+                    px = importlib.import_module("plotly.express")
+
+                    def formato_moneda(valor: float) -> str:
+                        base = f"{valor:,.2f}"
+                        return base.replace(",", "X").replace(".", ",").replace("X", ".")
+
+                    # Ejecutar consultas (lo que esté disponible según queries.py)
+                    df_deuda = db_manager.consultar_estadisticas_deuda_base(int(ano_sel), int(cuota_sel))
+                    df_real = db_manager.consultar_estadisticas_pagos_realizados(int(ano_sel), int(cuota_sel))
+                    df_pend = db_manager.consultar_estadisticas_pagos_pendientes(int(ano_sel), int(cuota_sel))
+
+                    # Helpers para totales según esquema de columnas
+                    def totalize(df: pd.DataFrame | None) -> float:
+                        if df is None or getattr(df, "empty", True):
+                            return 0.0
+                        if "total" in df.columns:
+                            return float(pd.to_numeric(df["total"], errors="coerce").fillna(0).sum())
+                        cols = [c for c in ["importe_total", "i_capital", "i_recargo", "i_multa"] if c in df.columns]
+                        if "importe_total" in cols:
+                            return float(pd.to_numeric(df["importe_total"], errors="coerce").fillna(0).sum())
+                        # Si no existe importe_total, intentar sumar i_capital+i_recargo+i_multa
+                        if all(c in df.columns for c in ["i_capital", "i_recargo", "i_multa"]):
+                            return float(
+                                pd.to_numeric(df["i_capital"], errors="coerce").fillna(0).sum()
+                                + pd.to_numeric(df["i_recargo"], errors="coerce").fillna(0).sum()
+                                + pd.to_numeric(df["i_multa"], errors="coerce").fillna(0).sum()
+                            )
+                        return 0.0
+
+                    total_deuda = totalize(df_deuda)
+                    total_real = totalize(df_real)
+                    total_pend = totalize(df_pend)
+
+                    # Si no hay detalle de pendientes pero sí totales de deuda y recaudado, estimar diferencia
+                    if total_pend == 0.0 and (total_deuda > 0 or total_real > 0):
+                        total_pend = max(0.0, total_deuda - total_real)
+                        df_pend_p = pd.DataFrame({"categoria": ["Por Recaudar"], "monto": [total_pend]})
+                    else:
+                        df_pend_p = df_pend if isinstance(df_pend, pd.DataFrame) else pd.DataFrame()
+
+                    # DataFrames a mostrar (sin forzar un esquema particular)
+                    df_deuda_p = df_deuda if isinstance(df_deuda, pd.DataFrame) else pd.DataFrame()
+                    df_real_p = df_real if isinstance(df_real, pd.DataFrame) else pd.DataFrame()
+
+                    # Totales ya calculados con 'totalize' (evitar suposiciones de columnas específicas)
+                    # total_deuda, total_real y total_pend ya vienen computados arriba
+
+                    # Métricas
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("💳 Total Deuda", f"$ {formato_moneda(total_deuda)}")
+                    m2.metric("✅ Recaudado", f"$ {formato_moneda(total_real)}")
+                    m3.metric("⏳ Por Recaudar", f"$ {formato_moneda(total_pend)}")
+
+                    st.divider()
+
+                    # Tablas
+                    t1, t2, t3 = st.tabs(["� Deuda (base)", "💰 Pagos realizados", "🕒 Por recaudar"])
+                    with t1:
+                        if df_deuda_p is None or df_deuda_p.empty:
+                            st.info("Sin datos de deuda para el período con el query actual.")
+                        else:
+                            st.dataframe(df_deuda_p, use_container_width=True, height=300)
+                    with t2:
+                        if df_real_p is None or df_real_p.empty:
+                            st.info("Sin datos de recaudación para el período.")
+                        else:
+                            st.dataframe(df_real_p, use_container_width=True, height=300)
+                    with t3:
+                        if df_pend_p is None or df_pend_p.empty:
+                            st.info("No hay detalle de pendientes; se muestra el total estimado en las métricas.")
+                        else:
+                            st.dataframe(df_pend_p, use_container_width=True, height=300)
+
+                    st.divider()
+
+                    # Gráfico de barras apiladas: recaudado + por recaudar = deuda total
+                    if total_deuda > 0 or total_real > 0 or total_pend > 0:
+                        stacked_data = pd.DataFrame({
+                            "segmento": ["Recaudado", "Por recaudar"],
+                            "monto": [total_real, total_pend],
+                            "deuda": [f"Deuda {int(ano_sel)}/{int(cuota_sel)}", f"Deuda {int(ano_sel)}/{int(cuota_sel)}"]
+                        })
+                        fig_bar = px.bar(
+                            stacked_data,
+                            x="deuda",
+                            y="monto",
+                            color="segmento",
+                            title="Barras apiladas: Deuda = Recaudado + Por Recaudar",
+                            text_auto=True,
+                        )
+                        fig_bar.update_layout(legend_title_text="Segmento", yaxis_title="Monto")
+                        st.plotly_chart(fig_bar, use_container_width=True)
+
+                    # Gráfico de torta, con opción de incluir 'Total Deuda'
+                    incluir_total = st.checkbox("Mostrar también 'Total Deuda' en la torta (puede duplicar)", value=True)
+                    if incluir_total:
+                        pie_data = pd.DataFrame({
+                            "categoria": ["Total Deuda", "Recaudado", "Por Recaudar"],
+                            "monto": [total_deuda, total_real, total_pend],
+                        })
+                        titulo_pie = "Composición: Total, Recaudado y Por Recaudar"
+                    else:
+                        pie_data = pd.DataFrame({
+                            "categoria": ["Recaudado", "Por Recaudar"],
+                            "monto": [total_real, total_pend],
+                        })
+                        titulo_pie = "Composición: Recaudado vs Por Recaudar"
+                    fig_pie = px.pie(pie_data, names="categoria", values="monto", title=titulo_pie)
+                    st.plotly_chart(fig_pie, use_container_width=True)
+
+                    # Descarga de datos
+                    from io import BytesIO
+                    buffer = BytesIO()
+                    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                        (df_deuda_p if df_deuda_p is not None else pd.DataFrame()).to_excel(writer, index=False, sheet_name="Deuda")
+                        (df_real_p if df_real_p is not None else pd.DataFrame()).to_excel(writer, index=False, sheet_name="Recaudado")
+                        (df_pend_p if df_pend_p is not None else pd.DataFrame()).to_excel(writer, index=False, sheet_name="PorRecaudar")
+                        pd.DataFrame({
+                            "Metric": ["Total Deuda", "Recaudado", "Por Recaudar"],
+                            "Monto": [total_deuda, total_real, total_pend]
+                        }).to_excel(writer, index=False, sheet_name="Totales")
+                    buffer.seek(0)
+                    st.download_button(
+                        label="📥 Descargar Excel (Deuda, Recaudado, Por Recaudar)",
+                        data=buffer.getvalue(),
+                        file_name=f"estadisticas_{int(ano_sel)}_{int(cuota_sel)}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+
+                except Exception as e:
+                    st.error(f"❌ Error generando reportes: {e}")
 
         # SUB-PESTAÑA 3: DASHBOARDS
         with subtab_dashboards:

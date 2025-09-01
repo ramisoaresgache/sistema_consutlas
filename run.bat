@@ -11,6 +11,14 @@ echo Activando entorno virtual...
 call venv\Scripts\activate
 
 echo.
+echo Verificando dependencias...
+python -m pip show plotly >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+	echo plotly no encontrado. Instalando dependencias...
+	pip install -r requirements.txt
+)
+
+echo.
 echo Iniciando aplicacion...
 echo.
 echo La aplicacion se abrira en: http://localhost:8501
