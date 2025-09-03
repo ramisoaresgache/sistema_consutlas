@@ -42,7 +42,9 @@ CASE
 END AS estado,
     a.n_comprob AS comprobante,
     a.f_cobro AS fecha_cobro, a.c_cuenta AS cuenta,
-    a.i_registro AS importe, a.n_plan AS numero_plan
+    a.i_registro AS importe, a.n_plan AS numero_plan,
+    b.f_generacion as fecha_generacion_lote, 
+    b.d_nombre_orig as nombre_archivo
 FROM bco_cab a, bco_archivos b
 WHERE a.n_archivo = b.n_archivo
 AND {where_clause}
