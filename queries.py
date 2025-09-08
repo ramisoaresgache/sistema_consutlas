@@ -359,13 +359,13 @@ FROM (
         return f"""
 SELECT UNIQUE b.c_cuenta, b.c_tasa, b.n_ano, b.n_cuota, b.c_actual, c.n_comprob, c.i_capital, c.i_recargo, c.c_lugar_pago, c.c_movimiento
 FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c
-    WHERE b.c_sistema = 2
-    AND a.c_cuenta = b.c_cuenta
-    AND b.n_transac = c.n_transac
-    AND b.c_actual = "CS"
-    AND c.c_movimiento IN (70, 71, 75)
-    AND b.n_cuota = {cuota}
-    AND b.n_ano = {ano}
+WHERE b.c_sistema = 2 
+AND a.c_cuenta = b.c_cuenta 
+AND b.n_transac = c.n_transac
+AND c.c_movimiento IN (70, 71, 75)
+AND b.n_cuota = {cuota}
+AND b.n_ano = {ano}
+ORDER BY b.c_cuenta, b.c_tasa
 """
     @staticmethod
     def estadisticas_pagos_confirmados_total(ano: int, cuota: int) -> str:
@@ -374,19 +374,18 @@ SELECT SUM(sub.i_capital) AS total_confirmados, COUNT(*) AS cantidad_registros
 FROM (
     SELECT UNIQUE b.c_cuenta, b.c_tasa, c.i_capital
     FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c
-    WHERE b.c_sistema = 2
-    AND a.c_cuenta = b.c_cuenta
+    WHERE b.c_sistema = 2 
+    AND a.c_cuenta = b.c_cuenta 
     AND b.n_transac = c.n_transac
-    AND b.c_actual = "CS"
     AND c.c_movimiento IN (70, 71, 75)
-    AND b.n_ano = {ano}
     AND b.n_cuota = {cuota}
+    AND b.n_ano = {ano}
 ) sub
 """
     @staticmethod
     def estadisticas_pagos_deudores_detalle(ano: int, cuota: int) -> str:
         return f"""
-SELECT UNIQUE b.c_cuenta,b.c_tasa, b.n_ano, b.n_cuota, b.c_actual, c.n_comprob, c.i_capital, c.i_recargo, c.c_lugar_pago, c.c_movimiento
+SELECT UNIQUE b.c_cuenta, b.c_tasa, b.n_ano, b.n_cuota, b.c_actual, c.n_comprob, c.i_capital, c.i_recargo, c.c_lugar_pago, c.c_movimiento
 FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c
     WHERE b.c_sistema = 2
     AND a.c_cuenta = b.c_cuenta
