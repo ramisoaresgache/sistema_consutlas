@@ -551,132 +551,217 @@ def main():
                         base = f"{valor:,.2f}"
                         return base.replace(",", "X").replace(".", ",").replace("X", ".")
 
-                    # Ejecutar consultas (lo que esté disponible según queries.py)
-                    df_deuda = db_manager.consultar_estadisticas_deuda_base(int(ano_sel), int(cuota_sel))
-                    df_real = db_manager.consultar_estadisticas_pagos_realizados(int(ano_sel), int(cuota_sel))
-                    df_pend = db_manager.consultar_estadisticas_pagos_pendientes(int(ano_sel), int(cuota_sel))
+                    # Ejecutar consulta para obtener total de deuda
+                    df_total_deuda = db_manager.consultar_estadisticas_total_deuda(int(ano_sel), int(cuota_sel))
+                    total_deuda = 0.0
+                    if df_total_deuda is not None and not df_total_deuda.empty and "total_deuda" in df_total_deuda.columns:
+                        total_deuda = float(df_total_deuda["total_deuda"].iloc[0])
 
-                    # Helpers para totales según esquema de columnas
-                    def totalize(df: pd.DataFrame | None) -> float:
-                        if df is None or getattr(df, "empty", True):
-                            return 0.0
-                        if "total" in df.columns:
-                            return float(pd.to_numeric(df["total"], errors="coerce").fillna(0).sum())
-                        cols = [c for c in ["importe_total", "i_capital", "i_recargo", "i_multa"] if c in df.columns]
-                        if "importe_total" in cols:
-                            return float(pd.to_numeric(df["importe_total"], errors="coerce").fillna(0).sum())
-                        # Si no existe importe_total, intentar sumar i_capital+i_recargo+i_multa
-                        if all(c in df.columns for c in ["i_capital", "i_recargo", "i_multa"]):
-                            return float(
-                                pd.to_numeric(df["i_capital"], errors="coerce").fillna(0).sum()
-                                + pd.to_numeric(df["i_recargo"], errors="coerce").fillna(0).sum()
-                                + pd.to_numeric(df["i_multa"], errors="coerce").fillna(0).sum()
-                            )
-                        return 0.0
+                    # Obtener datos de pagos sin imputar
+                    df_pagos_sin_imputar_total = db_manager.consultar_estadisticas_pagos_sin_imputar_total(int(ano_sel), int(cuota_sel))
+                    total_sin_imputar = 0.0
+                    cantidad_sin_imputar = 0
+                    if df_pagos_sin_imputar_total is not None and not df_pagos_sin_imputar_total.empty:
+                        if "total_sin_imputar" in df_pagos_sin_imputar_total.columns:
+                            total_sin_imputar = float(df_pagos_sin_imputar_total["total_sin_imputar"].iloc[0]) if df_pagos_sin_imputar_total["total_sin_imputar"].iloc[0] is not None else 0.0
+                        if "cantidad_registros" in df_pagos_sin_imputar_total.columns:
+                            cantidad_sin_imputar = int(df_pagos_sin_imputar_total["cantidad_registros"].iloc[0]) if df_pagos_sin_imputar_total["cantidad_registros"].iloc[0] is not None else 0
 
-                    total_deuda = totalize(df_deuda)
-                    total_real = totalize(df_real)
-                    total_pend = totalize(df_pend)
+                    df_pagos_sin_imputar_detalle = db_manager.consultar_estadisticas_pagos_sin_imputar_detalle(int(ano_sel), int(cuota_sel))
 
-                    # Si no hay detalle de pendientes pero sí totales de deuda y recaudado, estimar diferencia
-                    if total_pend == 0.0 and (total_deuda > 0 or total_real > 0):
-                        total_pend = max(0.0, total_deuda - total_real)
-                        df_pend_p = pd.DataFrame({"categoria": ["Por Recaudar"], "monto": [total_pend]})
-                    else:
-                        df_pend_p = df_pend if isinstance(df_pend, pd.DataFrame) else pd.DataFrame()
+                    # Obtener datos de pagos confirmados
+                    df_pagos_confirmados_total = db_manager.consultar_estadisticas_pagos_confirmados_total(int(ano_sel), int(cuota_sel))
+                    total_confirmados = 0.0
+                    cantidad_confirmados = 0
+                    if df_pagos_confirmados_total is not None and not df_pagos_confirmados_total.empty:
+                        # Debug: mostrar columnas disponibles
+                        print(f"Columnas disponibles en pagos confirmados: {df_pagos_confirmados_total.columns.tolist()}")
+                        # Buscar la columna de total (puede tener nombres diferentes)
+                        for col in df_pagos_confirmados_total.columns:
+                            if 'total' in col.lower() or 'confirmados' in col.lower():
+                                valor = df_pagos_confirmados_total[col].iloc[0]
+                                if valor is not None:
+                                    total_confirmados = float(valor)
+                                break
+                        if "cantidad_registros" in df_pagos_confirmados_total.columns:
+                            cantidad_confirmados = int(df_pagos_confirmados_total["cantidad_registros"].iloc[0]) if df_pagos_confirmados_total["cantidad_registros"].iloc[0] is not None else 0
 
-                    # DataFrames a mostrar (sin forzar un esquema particular)
-                    df_deuda_p = df_deuda if isinstance(df_deuda, pd.DataFrame) else pd.DataFrame()
-                    df_real_p = df_real if isinstance(df_real, pd.DataFrame) else pd.DataFrame()
+                    df_pagos_confirmados_detalle = db_manager.consultar_estadisticas_pagos_confirmados_detalle(int(ano_sel), int(cuota_sel))
 
-                    # Totales ya calculados con 'totalize' (evitar suposiciones de columnas específicas)
-                    # total_deuda, total_real y total_pend ya vienen computados arriba
+                    # Obtener datos de deudores
+                    df_pagos_deudores_total = db_manager.consultar_estadisticas_pagos_deudores_total(int(ano_sel), int(cuota_sel))
+                    total_deudores = 0.0
+                    cantidad_deudores = 0
+                    if df_pagos_deudores_total is not None and not df_pagos_deudores_total.empty:
+                        # Debug: mostrar columnas disponibles
+                        print(f"Columnas disponibles en deudores: {df_pagos_deudores_total.columns.tolist()}")
+                        # Buscar la columna de total (puede tener nombres diferentes)
+                        for col in df_pagos_deudores_total.columns:
+                            if 'total' in col.lower() or 'deudores' in col.lower():
+                                valor = df_pagos_deudores_total[col].iloc[0]
+                                if valor is not None:
+                                    total_deudores = float(valor)
+                                break
+                        if "cantidad_registros" in df_pagos_deudores_total.columns:
+                            cantidad_deudores = int(df_pagos_deudores_total["cantidad_registros"].iloc[0]) if df_pagos_deudores_total["cantidad_registros"].iloc[0] is not None else 0
 
-                    # Métricas
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("💳 Total Deuda", f"$ {formato_moneda(total_deuda)}")
-                    m2.metric("✅ Recaudado", f"$ {formato_moneda(total_real)}")
-                    m3.metric("⏳ Por Recaudar", f"$ {formato_moneda(total_pend)}")
+                    df_pagos_deudores_detalle = db_manager.consultar_estadisticas_pagos_deudores_detalle(int(ano_sel), int(cuota_sel))
 
-                    st.divider()
-
-                    # Tablas
-                    t1, t2, t3 = st.tabs(["� Deuda (base)", "💰 Pagos realizados", "🕒 Por recaudar"])
-                    with t1:
-                        if df_deuda_p is None or df_deuda_p.empty:
-                            st.info("Sin datos de deuda para el período con el query actual.")
+                    # Obtener datos por localidad (primero intentamos el método directo)
+                    df_por_localidad = db_manager.consultar_estadisticas_por_localidad_directo(int(ano_sel), int(cuota_sel))
+                    
+                    # Si falla el método directo, intentamos con tabla temporal
+                    if df_por_localidad is None or df_por_localidad.empty:
+                        temp_created = db_manager.crear_temp_emitido_por_zona(int(ano_sel), int(cuota_sel))
+                        if temp_created:
+                            df_por_localidad = db_manager.consultar_estadisticas_por_localidad()
                         else:
-                            st.dataframe(df_deuda_p, use_container_width=True, height=300)
-                    with t2:
-                        if df_real_p is None or df_real_p.empty:
-                            st.info("Sin datos de recaudación para el período.")
-                        else:
-                            st.dataframe(df_real_p, use_container_width=True, height=300)
-                    with t3:
-                        if df_pend_p is None or df_pend_p.empty:
-                            st.info("No hay detalle de pendientes; se muestra el total estimado en las métricas.")
-                        else:
-                            st.dataframe(df_pend_p, use_container_width=True, height=300)
+                            st.warning("⚠️ No se pudieron obtener datos por localidad usando tabla temporal.")
 
-                    st.divider()
-
-                    # Gráfico de barras apiladas: recaudado + por recaudar = deuda total
-                    if total_deuda > 0 or total_real > 0 or total_pend > 0:
-                        stacked_data = pd.DataFrame({
-                            "segmento": ["Recaudado", "Por recaudar"],
-                            "monto": [total_real, total_pend],
-                            "deuda": [f"Deuda {int(ano_sel)}/{int(cuota_sel)}", f"Deuda {int(ano_sel)}/{int(cuota_sel)}"]
-                        })
-                        fig_bar = px.bar(
-                            stacked_data,
-                            x="deuda",
-                            y="monto",
-                            color="segmento",
-                            title="Barras apiladas: Deuda = Recaudado + Por Recaudar",
-                            text_auto=True,
-                        )
-                        fig_bar.update_layout(legend_title_text="Segmento", yaxis_title="Monto")
-                        st.plotly_chart(fig_bar, use_container_width=True)
-
-                    # Gráfico de torta, con opción de incluir 'Total Deuda'
-                    incluir_total = st.checkbox("Mostrar también 'Total Deuda' en la torta (puede duplicar)", value=True)
-                    if incluir_total:
-                        pie_data = pd.DataFrame({
-                            "categoria": ["Total Deuda", "Recaudado", "Por Recaudar"],
-                            "monto": [total_deuda, total_real, total_pend],
-                        })
-                        titulo_pie = "Composición: Total, Recaudado y Por Recaudar"
-                    else:
-                        pie_data = pd.DataFrame({
-                            "categoria": ["Recaudado", "Por Recaudar"],
-                            "monto": [total_real, total_pend],
-                        })
-                        titulo_pie = "Composición: Recaudado vs Por Recaudar"
-                    fig_pie = px.pie(pie_data, names="categoria", values="monto", title=titulo_pie)
-                    st.plotly_chart(fig_pie, use_container_width=True)
-
-                    # Descarga de datos
-                    from io import BytesIO
-                    buffer = BytesIO()
-                    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                        (df_deuda_p if df_deuda_p is not None else pd.DataFrame()).to_excel(writer, index=False, sheet_name="Deuda")
-                        (df_real_p if df_real_p is not None else pd.DataFrame()).to_excel(writer, index=False, sheet_name="Recaudado")
-                        (df_pend_p if df_pend_p is not None else pd.DataFrame()).to_excel(writer, index=False, sheet_name="PorRecaudar")
-                        pd.DataFrame({
-                            "Metric": ["Total Deuda", "Recaudado", "Por Recaudar"],
-                            "Monto": [total_deuda, total_real, total_pend]
-                        }).to_excel(writer, index=False, sheet_name="Totales")
-                    buffer.seek(0)
-                    st.download_button(
-                        label="📥 Descargar Excel (Deuda, Recaudado, Por Recaudar)",
-                        data=buffer.getvalue(),
-                        file_name=f"estadisticas_{int(ano_sel)}_{int(cuota_sel)}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
+                    # Guardar datos en session_state para preservar entre recargas
+                    st.session_state['estadisticas_data'] = {
+                        'total_deuda': total_deuda,
+                        'total_sin_imputar': total_sin_imputar,
+                        'cantidad_sin_imputar': cantidad_sin_imputar,
+                        'total_confirmados': total_confirmados,
+                        'cantidad_confirmados': cantidad_confirmados,
+                        'total_deudores': total_deudores,
+                        'cantidad_deudores': cantidad_deudores,
+                        'df_por_localidad': df_por_localidad,
+                        'df_pagos_sin_imputar_detalle': df_pagos_sin_imputar_detalle,
+                        'df_pagos_confirmados_detalle': df_pagos_confirmados_detalle,
+                        'df_pagos_deudores_detalle': df_pagos_deudores_detalle,
+                        'ano_sel': int(ano_sel),
+                        'cuota_sel': int(cuota_sel)
+                    }
 
                 except Exception as e:
-                    st.error(f"❌ Error generando reportes: {e}")
+                    st.error(f"❌ Error ejecutando consulta: {e}")
+
+            # Mostrar resultados si hay datos en session_state
+            if 'estadisticas_data' in st.session_state:
+                data = st.session_state['estadisticas_data']
+                
+                # Validar que existan todas las claves necesarias (agregar valores por defecto si faltan)
+                data.setdefault('total_confirmados', 0.0)
+                data.setdefault('cantidad_confirmados', 0)
+                data.setdefault('total_deudores', 0.0)
+                data.setdefault('cantidad_deudores', 0)
+                data.setdefault('df_pagos_confirmados_detalle', None)
+                data.setdefault('df_pagos_deudores_detalle', None)
+                
+                def formato_moneda(valor: float) -> str:
+                    base = f"{valor:,.2f}"
+                    return base.replace(",", "X").replace(".", ",").replace("X", ".")
+
+                # Mostrar métricas principales
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("💳 Total Deuda", f"$ {formato_moneda(data['total_deuda'])}")
+                with col2:
+                    st.metric("✅ Pagos Confirmados", f"$ {formato_moneda(data['total_confirmados'])}")
+                with col3:
+                    st.metric("⏳ Pagos sin Imputar", f"$ {formato_moneda(data['total_sin_imputar'])}")
+                with col4:
+                    st.metric("⚠️ Deudores", f"$ {formato_moneda(data['total_deudores'])}")
+                
+                # Mostrar información de registros
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if data['cantidad_confirmados'] > 0:
+                        st.success(f"✅ {data['cantidad_confirmados']} registros confirmados")
+                with col2:
+                    if data['cantidad_sin_imputar'] > 0:
+                        st.info(f"📊 {data['cantidad_sin_imputar']} registros sin imputar")
+                with col3:
+                    if data['cantidad_deudores'] > 0:
+                        st.warning(f"⚠️ {data['cantidad_deudores']} registros de deudores")
+
+                st.divider()
+
+                # Crear tabs para diferentes vistas
+                tab1, tab2, tab3, tab4 = st.tabs(["📍 Deuda por Localidad", "✅ Pagos Confirmados", "⏳ Pagos sin Imputar", "⚠️ Deudores"])
+                
+                with tab1:
+                    # Mostrar tabla de datos por localidad
+                    if data['df_por_localidad'] is not None and not data['df_por_localidad'].empty:
+                        st.subheader("📍 Deuda por Localidad")
+                        st.dataframe(data['df_por_localidad'], use_container_width=True, height=400)
+
+                        # Gráfico de barras por localidad
+                        if "d_localidad" in data['df_por_localidad'].columns and "capital_total" in data['df_por_localidad'].columns:
+                            import importlib
+                            px = importlib.import_module("plotly.express")
+                            
+                            fig_bar = px.bar(
+                                data['df_por_localidad'],
+                                x="d_localidad",
+                                y="capital_total",
+                                title="Deuda por Localidad",
+                                labels={"d_localidad": "Localidad", "capital_total": "Capital Total"}
+                            )
+                            fig_bar.update_layout(xaxis_tickangle=-45)
+                            st.plotly_chart(fig_bar, use_container_width=True)
+
+                            # Gráfico de torta
+                            fig_pie = px.pie(
+                                data['df_por_localidad'],
+                                names="d_localidad",
+                                values="capital_total",
+                                title="Distribución de Deuda por Localidad"
+                            )
+                            st.plotly_chart(fig_pie, use_container_width=True)
+                    else:
+                        st.info("ℹ️ No se encontraron datos por localidad para el período seleccionado.")
+
+                with tab2:
+                    # Mostrar datos de pagos confirmados
+                    if data['df_pagos_confirmados_detalle'] is not None and not data['df_pagos_confirmados_detalle'].empty:
+                        st.subheader("✅ Pagos Confirmados - Detalle")
+                        st.dataframe(data['df_pagos_confirmados_detalle'], use_container_width=True, height=400)
+                    else:
+                        st.info("ℹ️ No se encontraron pagos confirmados para el período seleccionado.")
+
+                with tab3:
+                    # Mostrar datos de pagos sin imputar
+                    if data['df_pagos_sin_imputar_detalle'] is not None and not data['df_pagos_sin_imputar_detalle'].empty:
+                        st.subheader("⏳ Pagos sin Imputar - Detalle")
+                        st.dataframe(data['df_pagos_sin_imputar_detalle'], use_container_width=True, height=400)
+                    else:
+                        st.info("ℹ️ No se encontraron pagos sin imputar para el período seleccionado.")
+
+                with tab4:
+                    # Mostrar datos de deudores
+                    if data['df_pagos_deudores_detalle'] is not None and not data['df_pagos_deudores_detalle'].empty:
+                        st.subheader("⚠️ Deudores - Detalle")
+                        st.dataframe(data['df_pagos_deudores_detalle'], use_container_width=True, height=400)
+                    else:
+                        st.info("ℹ️ No se encontraron registros de deudores para el período seleccionado.")
+
+                # Descarga de datos
+                from io import BytesIO
+                buffer = BytesIO()
+                with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                    if data['df_por_localidad'] is not None and not data['df_por_localidad'].empty:
+                        data['df_por_localidad'].to_excel(writer, index=False, sheet_name="Deuda_por_Localidad")
+                    if data['df_pagos_sin_imputar_detalle'] is not None and not data['df_pagos_sin_imputar_detalle'].empty:
+                        data['df_pagos_sin_imputar_detalle'].to_excel(writer, index=False, sheet_name="Pagos_sin_Imputar")
+                    if data['df_pagos_confirmados_detalle'] is not None and not data['df_pagos_confirmados_detalle'].empty:
+                        data['df_pagos_confirmados_detalle'].to_excel(writer, index=False, sheet_name="Pagos_Confirmados")
+                    if data['df_pagos_deudores_detalle'] is not None and not data['df_pagos_deudores_detalle'].empty:
+                        data['df_pagos_deudores_detalle'].to_excel(writer, index=False, sheet_name="Deudores")
+                    pd.DataFrame({
+                        "Metric": ["Total Deuda", "Pagos sin Imputar", "Pagos Confirmados", "Deudores", "Cantidad sin Imputar", "Cantidad Confirmados", "Cantidad Deudores"],
+                        "Monto": [data['total_deuda'], data['total_sin_imputar'], data['total_confirmados'], data['total_deudores'], data['cantidad_sin_imputar'], data['cantidad_confirmados'], data['cantidad_deudores']]
+                    }).to_excel(writer, index=False, sheet_name="Totales")
+                buffer.seek(0)
+                st.download_button(
+                    label="📥 Descargar Excel (Completo)",
+                    data=buffer.getvalue(),
+                    file_name=f"estadisticas_completas_{data['ano_sel']}_{data['cuota_sel']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
 
         # SUB-PESTAÑA 3: DASHBOARDS
         with subtab_dashboards:

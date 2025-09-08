@@ -293,28 +293,122 @@ AND a.n_plan {where_clause}
 
     # --- Reportes estadísticos ---
     @staticmethod
-    def estadisticas_deuda_base(ano: int, cuota: int) -> str:
+    def estadisticas_total_deuda(ano: int, cuota: int) -> str:
         return f"""
-WITH deuda_total AS (
-  SELECT 
-    a.c_sistema, a.n_transac, a.c_cuenta, a.c_tasa, a.n_ano, a.n_cuota, a.c_actual,
-    b.n_comprob, b.c_lugar_pago, b.i_capital, b.i_recargo, b.i_multa, b.c_movimiento
-  FROM transacciones a
-  JOIN cta_cte b ON a.n_transac = b.n_transac
-  WHERE a.n_ano = ? AND a.n_cuota = ? 
-    AND b.n_orden = 1 
-    AND b.c_movimiento IN (207, 249)
-)
-SELECT 
-  a.c_sistema, a.c_cuenta, a.c_tasa, a.n_ano, a.n_cuota,
-  b.n_comprob, b.c_movimiento,
-  SUM(COALESCE(b.i_capital,0)+COALESCE(b.i_recargo,0)+COALESCE(b.i_multa,0)) AS total
-FROM deuda_total a
-JOIN cta_cte b ON a.n_transac = b.n_transac
-JOIN transacciones c ON b.n_transac = c.n_transac
-WHERE b.n_orden > 1 AND b.c_movimiento = 74
-GROUP BY 
-  a.c_sistema, a.c_cuenta, a.c_tasa, a.n_ano, a.n_cuota, b.n_comprob, b.c_movimiento;
+SELECT SUM(sub.i_capital) AS total_deuda, COUNT(*) AS cantidad_registros
+FROM (
+    SELECT UNIQUE b.c_cuenta, b.c_tasa, c.i_capital
+    FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c
+    WHERE b.c_sistema = 2
+    AND a.c_cuenta = b.c_cuenta
+    AND b.n_transac = c.n_transac
+    AND c.c_movimiento = 207
+    AND b.n_cuota = {cuota}
+    AND b.n_ano = {ano}
+) sub
+"""
+
+    @staticmethod
+    def estadisticas_emitido_por_zona_directo(ano: int, cuota: int) -> str:
+        return f"""
+SELECT d.d_localidad, SUM(a.i_capital) AS capital_total
+FROM estadisticas_emitido_detalle a, abl b, calles c, localidades d
+WHERE a.n_ano = {ano}
+AND a.n_cuota = {cuota}
+AND a.c_cuenta = b.c_cuenta 
+AND b.c_calle_pro = c.c_calle 
+AND c.c_partido = d.c_partido 
+AND c.c_localidad = d.c_localidad
+AND c.c_provincia = d.c_provincia
+GROUP BY d.d_localidad
+ORDER BY d.d_localidad
+"""
+
+    @staticmethod
+    def estadisticas_pagos_sin_imputar_detalle(ano: int, cuota: int) -> str:
+        return f"""
+SELECT UNIQUE b.c_cuenta, b.c_tasa, b.n_ano, b.n_cuota, b.c_actual, c.n_comprob, c.i_capital, c.i_recargo, d.d_lugar_pago, c.c_movimiento
+FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c, estadisticas_lugares_de_pago d
+WHERE b.c_sistema = 2 
+AND a.c_cuenta = b.c_cuenta 
+AND b.n_transac = c.n_transac
+AND c.c_movimiento = 74 
+AND c.c_lugar_pago = d.c_lugar_pago
+AND b.n_cuota = {cuota}
+AND b.n_ano = {ano}
+ORDER BY b.c_cuenta, b.c_tasa
+"""
+
+    @staticmethod
+    def estadisticas_pagos_sin_imputar_total(ano: int, cuota: int) -> str:
+        return f"""
+SELECT SUM(sub.i_capital) AS total_sin_imputar, COUNT(*) AS cantidad_registros
+FROM (
+    SELECT UNIQUE b.c_cuenta, b.c_tasa, c.i_capital
+    FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c
+    WHERE b.c_sistema = 2 
+    AND a.c_cuenta = b.c_cuenta 
+    AND b.n_transac = c.n_transac
+    AND c.c_movimiento = 74 
+    AND b.n_cuota = {cuota}
+    AND b.n_ano = {ano}
+) sub
+"""
+    @staticmethod
+    def estadisticas_pagos_confirmados_detalle(ano: int, cuota: int) -> str:
+        return f"""
+SELECT UNIQUE b.c_cuenta, b.c_tasa, b.n_ano, b.n_cuota, b.c_actual, c.n_comprob, c.i_capital, c.i_recargo, c.c_lugar_pago, c.c_movimiento
+FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c
+    WHERE b.c_sistema = 2
+    AND a.c_cuenta = b.c_cuenta
+    AND b.n_transac = c.n_transac
+    AND b.c_actual = "CS"
+    AND c.c_movimiento IN (70, 71, 75)
+    AND b.n_cuota = {cuota}
+    AND b.n_ano = {ano}
+"""
+    @staticmethod
+    def estadisticas_pagos_confirmados_total(ano: int, cuota: int) -> str:
+        return f"""
+SELECT SUM(sub.i_capital) AS total_confirmados, COUNT(*) AS cantidad_registros
+FROM (
+    SELECT UNIQUE b.c_cuenta, b.c_tasa, c.i_capital
+    FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c
+    WHERE b.c_sistema = 2
+    AND a.c_cuenta = b.c_cuenta
+    AND b.n_transac = c.n_transac
+    AND b.c_actual = "CS"
+    AND c.c_movimiento IN (70, 71, 75)
+    AND b.n_ano = {ano}
+    AND b.n_cuota = {cuota}
+) sub
+"""
+    @staticmethod
+    def estadisticas_pagos_deudores_detalle(ano: int, cuota: int) -> str:
+        return f"""
+SELECT UNIQUE b.c_cuenta,b.c_tasa, b.n_ano, b.n_cuota, b.c_actual, c.n_comprob, c.i_capital, c.i_recargo, c.c_lugar_pago, c.c_movimiento
+FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c
+    WHERE b.c_sistema = 2
+    AND a.c_cuenta = b.c_cuenta
+    AND b.n_transac = c.n_transac
+    AND b.c_actual = "DE"
+    AND b.n_cuota = {cuota}
+    AND b.n_ano = {ano}
+"""
+    @staticmethod
+    def estadisticas_pagos_deudores_total(ano: int, cuota: int) -> str:
+        return f"""
+SELECT SUM(sub.i_capital) AS total_deudores, COUNT(*) AS cantidad_registros
+FROM (
+    SELECT UNIQUE b.c_cuenta, b.c_tasa, c.i_capital
+    FROM estadisticas_emitido_detalle a, transacciones b, cta_cte c
+    WHERE b.c_sistema = 2
+    AND a.c_cuenta = b.c_cuenta
+    AND b.n_transac = c.n_transac
+    AND b.c_actual = "DE"
+    AND b.n_cuota = {cuota}
+    AND b.n_ano = {ano}
+) sub
 """
 
     # --- Usuarios ---

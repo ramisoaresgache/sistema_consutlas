@@ -95,12 +95,12 @@ class ConsultaLotesBancarios:
             st.warning("No se ingresaron números de comprobante válidos.")
             return
 
+        # Mostrar criterios y preparar controles
         ui_components.mostrar_criterios_busqueda(
             [f"Comprobantes: {comprobantes_input}"],
             "🔍 Buscando en cajas...",
             "cajas_consulta"
         )
-
         spinner_container, cancel_container, cancel_key = ui_components.crear_controles_busqueda("cajas")
         ui_components.mostrar_boton_cancelar(cancel_container, "cajas")
 

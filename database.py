@@ -170,39 +170,68 @@ class DatabaseManager:
         return self.execute_query(query)
 
     # --- NUEVAS: reportes estadísticos de recaudación ---
-    def consultar_estadisticas_deuda_base(self, ano: int, cuota: int):
-        """Devuelve filas de deuda base (n_orden=1, movimientos 207/249) sin CTE/param placeholders."""
-        query = (
-            "SELECT "
-            "a.c_sistema, a.n_transac, a.c_cuenta, a.c_tasa, a.n_ano, a.n_cuota, a.c_actual, "
-            "b.n_comprob, b.c_lugar_pago, b.i_capital, b.i_recargo, b.i_multa, b.c_movimiento, b.n_orden "
-            "FROM transacciones a, cta_cte b "
-            "WHERE a.n_transac = b.n_transac "
-            f"AND a.n_ano = {int(ano)} "
-            f"AND a.n_cuota = {int(cuota)} "
-            "AND b.n_orden = 1 "
-            "AND b.c_movimiento IN (207, 249)"
-        )
+    def consultar_estadisticas_total_deuda(self, ano: int, cuota: int):
+        """Obtiene el total de deuda para un año y cuota específicos."""
+        query = SQLBuilder.estadisticas_total_deuda(ano, cuota)
         return self.execute_query(query)
 
-    def consultar_estadisticas_pagos_realizados(self, ano: int, cuota: int):
-        """Devuelve filas de pagos realizados (n_orden>1, movimiento=74) sin CTE/param placeholders."""
-        query = (
-            "SELECT "
-            "a.c_sistema, a.n_transac, a.c_cuenta, a.c_tasa, a.n_ano, a.n_cuota, a.c_actual, "
-            "b.n_comprob, b.c_lugar_pago, b.i_capital, b.i_recargo, b.i_multa, b.c_movimiento, b.n_orden "
-            "FROM transacciones a, cta_cte b "
-            "WHERE a.n_transac = b.n_transac "
-            f"AND a.n_ano = {int(ano)} "
-            f"AND a.n_cuota = {int(cuota)} "
-            "AND b.n_orden > 1 "
-            "AND b.c_movimiento = 74"
-        )
+    def consultar_estadisticas_por_localidad_directo(self, ano: int, cuota: int):
+        """Obtiene los totales por localidad directamente sin tabla temporal."""
+        query = SQLBuilder.estadisticas_emitido_por_zona_directo(ano, cuota)
         return self.execute_query(query)
 
-    def consultar_estadisticas_pagos_pendientes(self, ano: int, cuota: int):
-        """Devuelve DF vacío: 'pendientes' se calcula en Python como Deuda - Recaudado."""
-        return pd.DataFrame()
+    def consultar_estadisticas_pagos_sin_imputar_detalle(self, ano: int, cuota: int):
+        """Obtiene el detalle de pagos que faltan por imputarse."""
+        query = SQLBuilder.estadisticas_pagos_sin_imputar_detalle(ano, cuota)
+        return self.execute_query(query)
+
+    def consultar_estadisticas_pagos_sin_imputar_total(self, ano: int, cuota: int):
+        """Obtiene el total de pagos que faltan por imputarse."""
+        query = SQLBuilder.estadisticas_pagos_sin_imputar_total(ano, cuota)
+        return self.execute_query(query)
+
+    def consultar_estadisticas_pagos_confirmados_detalle(self, ano: int, cuota: int):
+        """Obtiene el detalle de pagos confirmados."""
+        query = SQLBuilder.estadisticas_pagos_confirmados_detalle(ano, cuota)
+        return self.execute_query(query)
+
+    def consultar_estadisticas_pagos_confirmados_total(self, ano: int, cuota: int):
+        """Obtiene el total de pagos confirmados."""
+        query = SQLBuilder.estadisticas_pagos_confirmados_total(ano, cuota)
+        return self.execute_query(query)
+
+    def consultar_estadisticas_pagos_deudores_detalle(self, ano: int, cuota: int):
+        """Obtiene el detalle de pagos de deudores."""
+        query = SQLBuilder.estadisticas_pagos_deudores_detalle(ano, cuota)
+        return self.execute_query(query)
+
+    def consultar_estadisticas_pagos_deudores_total(self, ano: int, cuota: int):
+        """Obtiene el total de pagos de deudores."""
+        query = SQLBuilder.estadisticas_pagos_deudores_total(ano, cuota)
+        return self.execute_query(query)
+
+    def crear_temp_emitido_por_zona(self, ano: int, cuota: int):
+        """Crea la tabla temporal con emitido por zona."""
+        conn = self.get_connection()
+        if not conn:
+            return False
+
+        try:
+            cursor = conn.cursor()
+            query = SQLBuilder.estadisticas_emitido_por_zona_temp(ano, cuota)
+            cursor.execute(query)
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error creando tabla temporal: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def consultar_estadisticas_por_localidad(self):
+        """Obtiene los totales por localidad desde la tabla temporal."""
+        query = SQLBuilder.estadisticas_total_por_localidad()
+        return self.execute_query(query)
 
 
 # Instancia global del manejador de base de datos
