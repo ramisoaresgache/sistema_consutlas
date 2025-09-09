@@ -69,6 +69,58 @@ class ConsultaLotesBancarios:
             # Restaurar resultados persistentes si existen
             ui_components.mostrar_resultados_persistentes("bco_cab_consulta")
 
+        # SUB-PESTAÑA 2: CONSULTA EN CAJAS
+        with st.expander("🔍 Consulta en Cajas (por comprobante)"):
+            with st.form("consulta_cajas_form"):
+                comprobantes_cajas_input = st.text_input(
+                    "Comprobante/s (podes poner mas de 1):",
+                    placeholder="Ej: 10802142352, 10802142913",
+                    help="Ingresá los números de comprobante separados por coma"
+                )
+                submitted_cajas = st.form_submit_button("🔍 Buscar en Cajas", use_container_width=True)
+
+            if submitted_cajas:
+                self.procesar_busqueda_cajas(comprobantes_cajas_input)
+            else:
+                ui_components.mostrar_resultados_persistentes("cajas_consulta")
+
+    def procesar_busqueda_cajas(self, comprobantes_input):
+        """Procesa la búsqueda en la tabla de cajas."""
+        if not comprobantes_input.strip():
+            st.warning("Por favor, ingresá al menos un número de comprobante.")
+            return
+
+        comprobantes = [c.strip() for c in comprobantes_input.split(',') if c.strip().isdigit()]
+        if not comprobantes:
+            st.warning("No se ingresaron números de comprobante válidos.")
+            return
+
+        # Mostrar criterios y preparar controles
+        ui_components.mostrar_criterios_busqueda(
+            [f"Comprobantes: {comprobantes_input}"],
+            "🔍 Buscando en cajas...",
+            "cajas_consulta"
+        )
+        spinner_container, cancel_container, cancel_key = ui_components.crear_controles_busqueda("cajas")
+        ui_components.mostrar_boton_cancelar(cancel_container, "cajas")
+
+        def consulta_cajas_db():
+            return db_manager.consultar_cajas(comprobantes)
+
+        df = ui_components.ejecutar_con_spinner(
+            spinner_container,
+            "Consultando en cajas... Presioná 'Cancelar' si querés detener.",
+            consulta_cajas_db
+        )
+
+        ui_components.limpiar_controles(spinner_container, cancel_container, cancel_key)
+
+        if df is None or df.empty:
+            st.info("ℹ️ No se encontraron resultados en cajas para los comprobantes ingresados.")
+            return
+
+        ui_components.mostrar_resultados(df, "cajas_consulta")
+
     def procesar_busqueda(self, cuentas_input, registros_input, fecha_cobro, comprobantes_input_banco):
         """Procesa la búsqueda de lotes bancarios"""
         try:

@@ -27,7 +27,7 @@ El Sistema de Consultas es una aplicación web desarrollada en Python con Stream
 - Validación de longitud (máximo 16 dígitos)
 - Múltiples comprobantes separados por coma
 
-### 2. 🏦 Consulta de Lotes Bancarios
+### 2. 🏦 Consulta de Comprobantes
 - Búsqueda por cuenta/s, fecha de cobro, importes y comprobantes
 - Filtros flexibles y combinables
 - Validación de formatos de fecha

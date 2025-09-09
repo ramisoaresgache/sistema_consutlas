@@ -6,7 +6,7 @@ Maneja las consultas de débitos de ABL y PPC ePagos
 import streamlit as st
 import pandas as pd
 from database import db_manager
-from config import SQL_QUERIES, MESSAGES
+from config import MESSAGES
 
 
 class ConsultaDebitosAutomaticos:

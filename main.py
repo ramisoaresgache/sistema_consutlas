@@ -56,7 +56,7 @@ def main():
         with subtab1:
             consulta_recibos.mostrar_interfaz()
 
-        # SUB-PESTAÑA 2: CONSULTA DE LOTES BANCARIOS
+        # SUB-PESTAÑA 2: CONSULTA DE LOTES BANCARIOS Y DE LAS CAJAS
         with subtab2:
             consulta_lotes_bancarios.mostrar_interfaz()
 
@@ -169,11 +169,16 @@ def main():
                     )
 
                 with col_filter3:
-                    prioridades_disponibles = sorted([p for p in df["Prioridad"].unique() if p])
-                    prioridades_selected = st.multiselect(
-                        "Prioridades (múltiple)", 
-                        prioridades_disponibles,
-                        help="Selecciona una o múltiples prioridades. Si no seleccionas ninguna, se mostrarán todas."
+                    all_tags = set()
+                    # La columna 'Etiquetas' puede contener strings de tags separados por comas
+                    df['Etiquetas'].dropna().apply(
+                        lambda x: all_tags.update([tag.strip() for tag in str(x).split(',') if tag.strip()])
+                    )
+                    etiquetas_disponibles = sorted(list(all_tags))
+                    etiquetas_selected = st.multiselect(
+                        "Etiquetas (múltiple)",
+                        etiquetas_disponibles,
+                        help="Selecciona una o múltiples etiquetas para filtrar las tareas."
                     )
 
                 with col_filter4:
@@ -370,10 +375,13 @@ def main():
                 if estados_selected:  # Si hay estados seleccionados
                     df_filtered = df_filtered[df_filtered["Estado"].isin(estados_selected)]
 
-                # Aplicar filtro de prioridades (selección múltiple)
-                if prioridades_selected:  # Si hay prioridades seleccionadas
+                # Aplicar filtro de etiquetas (selección múltiple)
+                if etiquetas_selected:
+                    # Filtrar tareas que contengan CUALQUIERA de las etiquetas seleccionadas
                     df_filtered = df_filtered[
-                        df_filtered["Prioridad"].isin(prioridades_selected)
+                        df_filtered['Etiquetas'].dropna().apply(
+                            lambda x: any(tag.strip() in etiquetas_selected for tag in str(x).split(','))
+                        )
                     ]
 
                 # Aplicar filtro de rango de fecha de creación
@@ -476,35 +484,21 @@ def main():
                         height=400,
                     )
 
-                    # REMOVER EL PRIMER BOTÓN - SOLO DEJAR EL SEGUNDO
-                    # Preparar datos de Excel para descarga directa
-                    try:
-                        import io
-                        from datetime import datetime as dt
+                    # Botón de descarga
+                    from io import BytesIO
 
-                        # Crear archivo Excel
-                        output = io.BytesIO()
-                        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                            df_filtered.to_excel(
-                                writer,
-                                index=False,
-                                sheet_name="ClickUp_Datos_Filtrados",
-                            )
+                    buffer = BytesIO()
+                    # Asegurarse de que las columnas a descargar son las mostradas
+                    df_to_download = df_filtered[columnas_disponibles]
+                    df_to_download.to_excel(buffer, index=False, engine="openpyxl")
+                    buffer.seek(0)
 
-                        # Generar nombre con timestamp
-                        timestamp = dt.now().strftime("%Y%m%d_%H%M%S")
-                        filename = f"clickup_datos_filtrados_{timestamp}.xlsx"
-
-                        # UN SOLO BOTÓN que descarga directamente
-                        st.download_button(
-                            label="📥 Descargar datos filtrados como Excel",
-                            data=output.getvalue(),
-                            file_name=filename,
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            key=f"download_clickup_direct_{timestamp}",
-                            help="Descarga los datos filtrados directamente",
-                            use_container_width=True,
-                        )
+                    st.download_button(
+                        label="📥 Descargar datos filtrados como Excel",
+                        data=buffer.getvalue(),
+                        file_name="tareas_clickup_filtradas.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
 
                     except Exception as e:
                         st.error(f"❌ Error al preparar descarga: {str(e)}")
@@ -533,7 +527,7 @@ def main():
                             df_filtered, 
                             espacios_filtrados=espacios_selected if espacios_selected else None,
                             estados_filtrados=estados_selected if estados_selected else None,
-                            prioridades_filtradas=prioridades_selected if prioridades_selected else None,
+                            etiquetas_filtradas=etiquetas_selected if etiquetas_selected else None,
                             fecha_creacion_rango=fecha_creacion_rango_param,
                             fecha_cierre_rango=fecha_cierre_rango_param,
                             fecha_vencimiento_rango=fecha_vencimiento_rango_param
@@ -552,21 +546,298 @@ def main():
 
         # SUB-PESTAÑA 2: REPORTES ESTADÍSTICOS
         with subtab_estadisticos:
-            st.subheader("📊 Reportes Estadísticos")
-            st.info("🚧 **Próximamente reportes estadísticos de recaudación**")
+            st.subheader("📊 Reportes Estadísticos de Recaudación")
 
-            st.markdown(
-                """
-            ### 📊 Reportes en Desarrollo
-            
-            En esta sección encontrarás:
-            
-            - 📈 **Reportes estadísticos** de recaudación
-            - 📅 **Reportes programados** automáticos
-            - 📋 **Análisis de tendencias** temporales
-            - 💰 **Resúmenes ejecutivos** de gestión
-            """
-            )
+            # Inputs de periodo
+            col_a, col_b, col_btn = st.columns([1, 1, 1])
+            with col_a:
+                ano_sel = st.number_input("Año", min_value=2000, max_value=2100, value=2025, step=1)
+            with col_b:
+                cuota_sel = st.number_input("Cuota", min_value=1, max_value=99, value=8, step=1)
+            with col_btn:
+                consultar = st.button("🔎 Consultar", use_container_width=True)
+
+            if consultar:
+                try:
+                    from database import db_manager
+                    import importlib
+                    px = importlib.import_module("plotly.express")
+
+                    def formato_moneda(valor: float) -> str:
+                        base = f"{valor:,.2f}"
+                        return base.replace(",", "X").replace(".", ",").replace("X", ".")
+
+                    # Solo ejecutar consultas básicas al inicio
+                    # Ejecutar consulta para obtener total de deuda
+                    df_total_deuda = db_manager.consultar_estadisticas_total_deuda(int(ano_sel), int(cuota_sel))
+                    total_deuda = 0.0
+                    if df_total_deuda is not None and not df_total_deuda.empty and "total_deuda" in df_total_deuda.columns:
+                        total_deuda = float(df_total_deuda["total_deuda"].iloc[0])
+
+                    # Obtener datos por localidad (primero intentamos el método directo)
+                    df_por_localidad = db_manager.consultar_estadisticas_por_localidad_directo(int(ano_sel), int(cuota_sel))
+                    
+                    # Si falla el método directo, intentamos con tabla temporal
+                    if df_por_localidad is None or df_por_localidad.empty:
+                        temp_created = db_manager.crear_temp_emitido_por_zona(int(ano_sel), int(cuota_sel))
+                        if temp_created:
+                            df_por_localidad = db_manager.consultar_estadisticas_por_localidad()
+                        else:
+                            st.warning("⚠️ No se pudieron obtener datos por localidad usando tabla temporal.")
+
+                    # Guardar datos básicos en session_state para preservar entre recargas
+                    st.session_state['estadisticas_data'] = {
+                        'total_deuda': total_deuda,
+                        'df_por_localidad': df_por_localidad,
+                        'ano_sel': int(ano_sel),
+                        'cuota_sel': int(cuota_sel)
+                    }
+
+                except Exception as e:
+                    st.error(f"❌ Error ejecutando consulta: {e}")
+
+            # Mostrar resultados si hay datos en session_state
+            if 'estadisticas_data' in st.session_state:
+                data = st.session_state['estadisticas_data']
+                
+                def formato_moneda(valor: float) -> str:
+                    base = f"{valor:,.2f}"
+                    return base.replace(",", "X").replace(".", ",").replace("X", ".")
+
+                # Mostrar métrica principal
+                st.metric("💳 Total Deuda", f"$ {formato_moneda(data['total_deuda'])}")
+
+                st.divider()
+
+                # Crear tabs para diferentes vistas
+                tab1, tab2, tab3, tab4 = st.tabs(["📍 Deuda por Localidad", "✅ Pagos Confirmados", "⏳ Pagos sin Imputar", "⚠️ Deudores"])
+                
+                with tab1:
+                    # Mostrar tabla de datos por localidad
+                    if data['df_por_localidad'] is not None and not data['df_por_localidad'].empty:
+                        st.subheader("📍 Deuda por Localidad")
+                        st.dataframe(data['df_por_localidad'], use_container_width=True, height=400)
+
+                        # Gráfico de barras por localidad
+                        if "d_localidad" in data['df_por_localidad'].columns and "capital_total" in data['df_por_localidad'].columns:
+                            import importlib
+                            px = importlib.import_module("plotly.express")
+                            
+                            fig_bar = px.bar(
+                                data['df_por_localidad'],
+                                x="d_localidad",
+                                y="capital_total",
+                                title="Deuda por Localidad",
+                                labels={"d_localidad": "Localidad", "capital_total": "Capital Total"}
+                            )
+                            fig_bar.update_layout(xaxis_tickangle=-45)
+                            st.plotly_chart(fig_bar, use_container_width=True)
+
+                            # Gráfico de torta
+                            fig_pie = px.pie(
+                                data['df_por_localidad'],
+                                names="d_localidad",
+                                values="capital_total",
+                                title="Distribución de Deuda por Localidad"
+                            )
+                            st.plotly_chart(fig_pie, use_container_width=True)
+                    else:
+                        st.info("ℹ️ No se encontraron datos por localidad para el período seleccionado.")
+
+                with tab2:
+                    # Ejecutar consulta de pagos confirmados solo cuando se accede a esta tab
+                    if st.button("🔄 Cargar Pagos Confirmados", use_container_width=True):
+                        with st.spinner("Cargando pagos confirmados..."):
+                            from database import db_manager
+                            
+                            # Consulta total
+                            df_pagos_confirmados_total = db_manager.consultar_estadisticas_pagos_confirmados_total(data['ano_sel'], data['cuota_sel'])
+                            total_confirmados = 0.0
+                            cantidad_confirmados = 0
+                            if df_pagos_confirmados_total is not None and not df_pagos_confirmados_total.empty:
+                                if "total_confirmados" in df_pagos_confirmados_total.columns:
+                                    total_confirmados = float(df_pagos_confirmados_total["total_confirmados"].iloc[0]) if df_pagos_confirmados_total["total_confirmados"].iloc[0] is not None else 0.0
+                                if "cantidad_registros" in df_pagos_confirmados_total.columns:
+                                    cantidad_confirmados = int(df_pagos_confirmados_total["cantidad_registros"].iloc[0]) if df_pagos_confirmados_total["cantidad_registros"].iloc[0] is not None else 0
+                            
+                            # Consulta detalle
+                            df_pagos_confirmados_detalle = db_manager.consultar_estadisticas_pagos_confirmados_detalle(data['ano_sel'], data['cuota_sel'])
+                            
+                            # Guardar en session_state
+                            st.session_state['pagos_confirmados'] = {
+                                'total': total_confirmados,
+                                'cantidad': cantidad_confirmados,
+                                'detalle': df_pagos_confirmados_detalle
+                            }
+                    
+                    # Mostrar datos si están disponibles
+                    if 'pagos_confirmados' in st.session_state:
+                        pag_conf = st.session_state['pagos_confirmados']
+                        
+                        # Mostrar métricas
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("✅ Total Confirmados", f"$ {formato_moneda(pag_conf['total'])}")
+                        with col2:
+                            st.metric("📊 Registros", f"{pag_conf['cantidad']}")
+                        
+                        # Mostrar datos de pagos confirmados
+                        if pag_conf['detalle'] is not None and not pag_conf['detalle'].empty:
+                            st.subheader("✅ Pagos Confirmados - Detalle")
+                            st.dataframe(pag_conf['detalle'], use_container_width=True, height=400)
+                        else:
+                            st.info("ℹ️ No se encontraron pagos confirmados para el período seleccionado.")
+
+                with tab3:
+                    # Ejecutar consulta de pagos sin imputar solo cuando se accede a esta tab
+                    if st.button("🔄 Cargar Pagos Sin Imputar", use_container_width=True):
+                        with st.spinner("Cargando pagos sin imputar..."):
+                            from database import db_manager
+                            
+                            # Consulta total
+                            df_pagos_sin_imputar_total = db_manager.consultar_estadisticas_pagos_sin_imputar_total(data['ano_sel'], data['cuota_sel'])
+                            total_sin_imputar = 0.0
+                            cantidad_sin_imputar = 0
+                            if df_pagos_sin_imputar_total is not None and not df_pagos_sin_imputar_total.empty:
+                                if "total_sin_imputar" in df_pagos_sin_imputar_total.columns:
+                                    total_sin_imputar = float(df_pagos_sin_imputar_total["total_sin_imputar"].iloc[0]) if df_pagos_sin_imputar_total["total_sin_imputar"].iloc[0] is not None else 0.0
+                                if "cantidad_registros" in df_pagos_sin_imputar_total.columns:
+                                    cantidad_sin_imputar = int(df_pagos_sin_imputar_total["cantidad_registros"].iloc[0]) if df_pagos_sin_imputar_total["cantidad_registros"].iloc[0] is not None else 0
+                            
+                            # Consulta detalle
+                            df_pagos_sin_imputar_detalle = db_manager.consultar_estadisticas_pagos_sin_imputar_detalle(data['ano_sel'], data['cuota_sel'])
+                            
+                            # Guardar en session_state
+                            st.session_state['pagos_sin_imputar'] = {
+                                'total': total_sin_imputar,
+                                'cantidad': cantidad_sin_imputar,
+                                'detalle': df_pagos_sin_imputar_detalle
+                            }
+                    
+                    # Mostrar datos si están disponibles
+                    if 'pagos_sin_imputar' in st.session_state:
+                        pag_sin_imp = st.session_state['pagos_sin_imputar']
+                        
+                        # Mostrar métricas
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("⏳ Total Sin Imputar", f"$ {formato_moneda(pag_sin_imp['total'])}")
+                        with col2:
+                            st.metric("📊 Registros", f"{pag_sin_imp['cantidad']}")
+                        
+                        # Mostrar datos de pagos sin imputar
+                        if pag_sin_imp['detalle'] is not None and not pag_sin_imp['detalle'].empty:
+                            st.subheader("⏳ Pagos Sin Imputar - Detalle")
+                            st.dataframe(pag_sin_imp['detalle'], use_container_width=True, height=400)
+                            
+                            # Botón de descarga de Excel para pagos sin imputar
+                            from io import BytesIO
+                            buffer = BytesIO()
+                            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                                pag_sin_imp['detalle'].to_excel(writer, index=False, sheet_name="Pagos_Sin_Imputar")
+                            buffer.seek(0)
+                            
+                            st.download_button(
+                                label="📊 Descargar Pagos Sin Imputar en Excel",
+                                data=buffer.getvalue(),
+                                file_name=f"pagos_sin_imputar_{data['ano_sel']}_cuota_{data['cuota_sel']}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key=f"download_pagos_sin_imputar_{data['ano_sel']}_{data['cuota_sel']}"
+                            )
+                        else:
+                            st.info("ℹ️ No se encontraron pagos sin imputar para el período seleccionado.")
+
+                with tab4:
+                    # Ejecutar consulta de deudores solo cuando se accede a esta tab
+                    if st.button("🔄 Cargar Deudores", use_container_width=True):
+                        with st.spinner("Cargando deudores..."):
+                            from database import db_manager
+                            
+                            # Consulta total
+                            df_pagos_deudores_total = db_manager.consultar_estadisticas_pagos_deudores_total(data['ano_sel'], data['cuota_sel'])
+                            total_deudores = 0.0
+                            cantidad_deudores = 0
+                            if df_pagos_deudores_total is not None and not df_pagos_deudores_total.empty:
+                                if "total_deudores" in df_pagos_deudores_total.columns:
+                                    total_deudores = float(df_pagos_deudores_total["total_deudores"].iloc[0]) if df_pagos_deudores_total["total_deudores"].iloc[0] is not None else 0.0
+                                if "cantidad_registros" in df_pagos_deudores_total.columns:
+                                    cantidad_deudores = int(df_pagos_deudores_total["cantidad_registros"].iloc[0]) if df_pagos_deudores_total["cantidad_registros"].iloc[0] is not None else 0
+                            
+                            # Consulta detalle
+                            df_pagos_deudores_detalle = db_manager.consultar_estadisticas_pagos_deudores_detalle(data['ano_sel'], data['cuota_sel'])
+                            
+                            # Guardar en session_state
+                            st.session_state['pagos_deudores'] = {
+                                'total': total_deudores,
+                                'cantidad': cantidad_deudores,
+                                'detalle': df_pagos_deudores_detalle
+                            }
+                    
+                    # Mostrar datos si están disponibles
+                    if 'pagos_deudores' in st.session_state:
+                        pag_deudores = st.session_state['pagos_deudores']
+                        
+                        # Mostrar métricas
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("⚠️ Total Deudores", f"$ {formato_moneda(pag_deudores['total'])}")
+                        with col2:
+                            st.metric("📊 Registros", f"{pag_deudores['cantidad']}")
+                        
+                        # Mostrar datos de deudores
+                        if pag_deudores['detalle'] is not None and not pag_deudores['detalle'].empty:
+                            st.subheader("⚠️ Deudores - Detalle")
+                            st.dataframe(pag_deudores['detalle'], use_container_width=True, height=400)
+                        else:
+                            st.info("ℹ️ No se encontraron registros de deudores para el período seleccionado.")
+
+                # Descarga de datos completa solo si hay al menos los datos básicos
+                if 'resultados_estadisticas' in st.session_state and st.session_state['resultados_estadisticas']['df_por_localidad'] is not None:
+                    from io import BytesIO
+                    buffer = BytesIO()
+                    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                        # Datos básicos siempre disponibles
+                        st.session_state['resultados_estadisticas']['df_por_localidad'].to_excel(writer, index=False, sheet_name="Deuda_por_Localidad")
+                        
+                        # Datos adicionales si están cargados
+                        if 'pagos_sin_imputar' in st.session_state and st.session_state['pagos_sin_imputar']['detalle'] is not None:
+                            st.session_state['pagos_sin_imputar']['detalle'].to_excel(writer, index=False, sheet_name="Pagos_sin_Imputar")
+                        
+                        if 'pagos_confirmados' in st.session_state and st.session_state['pagos_confirmados']['detalle'] is not None:
+                            st.session_state['pagos_confirmados']['detalle'].to_excel(writer, index=False, sheet_name="Pagos_Confirmados")
+                        
+                        if 'pagos_deudores' in st.session_state and st.session_state['pagos_deudores']['detalle'] is not None:
+                            st.session_state['pagos_deudores']['detalle'].to_excel(writer, index=False, sheet_name="Deudores")
+                        
+                        # Hoja de totales
+                        totales_data = {
+                            "Metric": ["Total Deuda"],
+                            "Monto": [st.session_state['resultados_estadisticas']['total_deuda']]
+                        }
+                        
+                        # Agregar otros totales si están disponibles
+                        if 'pagos_sin_imputar' in st.session_state:
+                            totales_data["Metric"].append("Pagos sin Imputar")
+                            totales_data["Monto"].append(st.session_state['pagos_sin_imputar']['total'])
+                            
+                        if 'pagos_confirmados' in st.session_state:
+                            totales_data["Metric"].append("Pagos Confirmados")
+                            totales_data["Monto"].append(st.session_state['pagos_confirmados']['total'])
+                            
+                        if 'pagos_deudores' in st.session_state:
+                            totales_data["Metric"].append("Deudores")
+                            totales_data["Monto"].append(st.session_state['pagos_deudores']['total'])
+                        
+                        pd.DataFrame(totales_data).to_excel(writer, index=False, sheet_name="Totales")
+                    
+                    buffer.seek(0)
+                    st.download_button(
+                        label="📥 Descargar Excel (Completo)",
+                        data=buffer.getvalue(),
+                        file_name=f"estadisticas_completas_{data['ano_sel']}_{data['cuota_sel']}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
 
         # SUB-PESTAÑA 3: DASHBOARDS
         with subtab_dashboards:
