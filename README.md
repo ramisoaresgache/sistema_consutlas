@@ -88,11 +88,11 @@ El Sistema de Consultas es una aplicación web desarrollada en Python con Stream
    - Configurar los parámetros de base de datos:
    ```properties
    DB_DRIVER=IBM INFORMIX ODBC DRIVER (64-bit)
-   DB_HOST=192.9.200.5
-   DB_SERVICE=1521
-   DB_DATABASE=recaudaciones
-   DB_SERVER=munivl_tcp
-   DB_PROTOCOL=onsoctcp
+   DB_HOST=000.0.000.0
+   DB_SERVICE=0000
+   DB_DATABASE=db_name
+   DB_SERVER=server_name
+   DB_PROTOCOL=protocol_name
    DB_UID=tu_usuario
    DB_PWD=tu_contraseña
    ```
